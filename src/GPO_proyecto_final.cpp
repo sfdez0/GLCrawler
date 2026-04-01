@@ -313,8 +313,57 @@ void ResizeCallback(GLFWwindow* window, int width, int height)
 // Callback de pulsacion de tecla
 static void KeyCallback(GLFWwindow* window, int key, int code, int action, int mode)
 {
-	fprintf(stdout, "Key %d Code %d Act %d Mode %d\n", key, code, action, mode);
-	if (key == GLFW_KEY_ESCAPE) glfwSetWindowShouldClose(window, true);
+	fprintf(stdout, "Key %d Code %d Act %d Mode %d Pos (%f, %f, %f)\n", key, code, action, mode, pos_obs.x, pos_obs.y, pos_obs.z);
+	
+	if (key == GLFW_KEY_ESCAPE) {
+		glfwSetWindowShouldClose(window, true);
+	}
+	// Movimiento hacia adelante (W)
+	else if (key == GLFW_KEY_W){
+		vec3 move = glm::normalize(vec3(front.x, 0.0f, front.z)) * speed;
+		pos_obs += move;
+	}
+	// Movimiento hacia atrás (S)
+	else if (key == GLFW_KEY_S){
+		vec3 move = glm::normalize(vec3(front.x, 0.0f, front.z)) * speed;
+		pos_obs -= move;
+	}
+	// Movimiento hacia la derecha (D)
+	else if (key == GLFW_KEY_D){
+		vec3 right = glm::normalize(glm::cross(front, up));
+		pos_obs += right * speed;
+	}
+	// Movimiento hacia la izquierda (A)
+	else if (key == GLFW_KEY_A){
+		vec3 right = glm::normalize(glm::cross(front, up));
+		pos_obs -= right * speed;
+	}
+	// Movimiento hacia arriba (Q)
+	else if (key == GLFW_KEY_Q){
+		pos_obs += up * speed;
+	}
+	// Movimiento hacia abajo (E)
+	else if (key == GLFW_KEY_E){
+		pos_obs -= up * speed;
+	}
+	// Rotación hacia la izquierda (Z)
+	else if (key == GLFW_KEY_Z){
+		// Rotamos el vector front alrededor del eje Y (up) para girar la cámara a la izquierda
+		float angle = glm::radians(-5.0f); // 5 grados antiohorario
+		float cos_a = cos(angle);
+		float sin_a = sin(angle);
+		front.x = front.x * cos_a - front.z * sin_a;
+		front.z = front.x * sin_a + front.z * cos_a;
+	}
+	// Rotación hacia la derecha (X)
+	else if (key == GLFW_KEY_X){
+		// Rotamos el vector front alrededor del eje Y (up) para girar la cámara a la derecha
+		float angle = glm::radians(5.0f); // 5 grados
+		float cos_a = cos(angle);
+		float sin_a = sin(angle);
+		front.x = front.x * cos_a - front.z * sin_a;
+		front.z = front.x * sin_a + front.z * cos_a;
+	}
 }
 
 
@@ -323,6 +372,3 @@ void asigna_funciones_callback(GLFWwindow* window)
 	glfwSetWindowSizeCallback(window, ResizeCallback);
 	glfwSetKeyCallback(window, KeyCallback);
 }
-
-
-
