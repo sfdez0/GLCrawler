@@ -295,12 +295,19 @@ void show_info()
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
-// Callback de cambio tama�o de ventana
+// Callback de cambio tamaño de ventana
 void ResizeCallback(GLFWwindow* window, int width, int height)
 {
 	glfwGetFramebufferSize(window, &width, &height); 
 	glViewport(0, 0, width, height);
-	ALTO = height;	ANCHO = width;
+	ALTO = height;	
+	ANCHO = width;
+
+	// Actualizamos aspect ratio para la matriz de proyeccion
+	aspect = (float)ANCHO / (float)ALTO; 
+
+	// Actualizamos fov proporcionalmente al cambio de aspect ratio
+	fov = 60.0f * (4.0f / 3.0f) / aspect;
 }
 
 // Callback de pulsacion de tecla
