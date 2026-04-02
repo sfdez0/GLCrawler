@@ -5,9 +5,9 @@ ATG, 2019
 #include <GpO.h>
 #include <vector>
 
-// TAMA�O y TITULO INICIAL de la VENTANA
-int ANCHO = 800, ALTO = 600;  // Tama�o inicial ventana
-const char* prac = "OpenGL (GpO)";   // Nombre de la practica (aparecera en el titulo de la ventana).
+// TAMAÑO y TITULO INICIAL de la VENTANA
+int ANCHO = 800, ALTO = 600;  // Tamaño inicial ventana
+const char* prac = "OpenGL (GpO)"; // Nombre de la practica (aparecera en el titulo de la ventana).
 
 // Estructura para Bounding Box
 struct BoundingBox {
@@ -18,31 +18,32 @@ struct BoundingBox {
 // Vector de bounding boxes para colisiones
 std::vector<BoundingBox> collision_boxes;
 
+
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////     CODIGO SHADERS 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 #define GLSL(src) "#version 330 core\n" #src
 
+// Vertex Shader (in: pos, color; out: col; uniform: MVP)
 const char* vertex_prog = GLSL(
-layout(location = 0) in vec3 pos; 
-layout(location = 1) in vec3 color;
-out vec3 col;
-uniform mat4 MVP=mat4(1.0f);
-void main()
- {
-  gl_Position = MVP*vec4(pos,1); // Construyo coord homog�neas y aplico matriz transformacion M
-  col = color;                             // Paso color a fragment shader
- }
+	layout(location = 0) in vec3 pos; // Posición del vértice
+	layout(location = 1) in vec3 color; // Color del vértice
+	out vec3 col; // Color que se pasará al fragment shader
+	uniform mat4 MVP = mat4(1.0f); // Matriz de transformación MVP
+	void main() { 
+		gl_Position = MVP * vec4(pos,1); // Construimos coordenadas homogéneas y aplicamos matriz MVP
+		col = color; // Pasamos el color al fragment shader
+	}
 );
 
+// Fragment Shader (in: col; out: outputColor)
 const char* fragment_prog = GLSL(
-in vec3 col;
-out vec3 outputColor;
-void main() 
- {
-	outputColor = col;
- }
+	in vec3 col; // Color recibido del vertex shader
+	out vec3 outputColor; // Color final que se pintará en la pantalla
+	void main() {
+		outputColor = col;
+	}
 );
 
 
@@ -139,12 +140,14 @@ objeto crear_escena_cubica(void)
 	}
 
 	// Mandamos posiciones en un VBO
-	glGenBuffers(1, &buffer_pos); glBindBuffer(GL_ARRAY_BUFFER, buffer_pos);
+	glGenBuffers(1, &buffer_pos); 
+	glBindBuffer(GL_ARRAY_BUFFER, buffer_pos);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(pos_data), pos_data, GL_STATIC_DRAW);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 	// Mandamos colores en otro VBO
-	glGenBuffers(1, &buffer_col); glBindBuffer(GL_ARRAY_BUFFER, buffer_col);
+	glGenBuffers(1, &buffer_col); 
+	glBindBuffer(GL_ARRAY_BUFFER, buffer_col);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(color_data), color_data, GL_STATIC_DRAW);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 
@@ -232,13 +235,13 @@ void init_scene()
 
 
 // Variables para la cámara
-vec3 pos_obs = vec3(0.0f, 0.0f, 0.0f); // Posición inicial de la cámara (observador)
-vec3 front = vec3(0.0f, 0.0f, 1.0f); // Dirección hacia donde mira la cámara
-vec3 up = vec3(0.0f, 1.0f, 0.0f); // Vector "arriba" de la cámara
-float fov = 60.0f; // Campo de visión inicial
-float aspect = 4.0f / 3.0f; // Aspect ratio inicial (proporción de la ventana)
-float speed = 0.2f; // Velocidad de movimiento de la cámara
-float collision_radius = 0.5f; // Radio de colisión de la cámara
+vec3 cam_pos = vec3(0.0f, 0.0f, 0.0f); // Posición inicial de la cámara (observador)
+vec3 cam_target = vec3(0.0f, 0.0f, 1.0f); // Dirección hacia donde mira la cámara
+vec3 cam_up = vec3(0.0f, 1.0f, 0.0f); // Vector "arriba" de la cámara
+float cam_fov = 60.0f; // Campo de visión inicial
+float cam_speed = 0.2f; // Velocidad de movimiento de la cámara
+float cam_collision_radius = 0.5f; // Radio de colisión de la cámara
+float aspect_ratio = 4.0f / 3.0f; // Aspect ratio inicial (proporción de la ventana)
 
 // Actualizar escena: cambiar posicion objetos, nuevos objetros, posicion camara, luces, etc.
 void render_scene()
@@ -251,11 +254,11 @@ void render_scene()
 	///////// Actualizacion matrices M, V, P  /////////	
 	mat4 P, V, M, T, R, S;
 
-	P = perspective(glm::radians(fov), aspect, 0.1f, 50.0f);  // FOV, aspect ratio, Znear, Zfar
+	P = perspective(glm::radians(cam_fov), aspect_ratio, 0.1f, 50.0f);  // FOV, aspect ratio, Znear, Zfar
 	
 	// El target es un punto adelante de la cámara en la dirección donde mira
-	vec3 target = pos_obs + front;
-	V = lookAt(pos_obs, target, up);  // Pos camara, Lookat relativo a dirección, head up
+	vec3 target = cam_pos + cam_target;
+	V = lookAt(cam_pos, target, cam_up);  // Pos camara, Lookat relativo a dirección, head up
 	
 	// Matriz identidad para el cubo (sin transformaciones)
 	M = glm::mat4(1.0f);
@@ -266,19 +269,19 @@ void render_scene()
 	glBindVertexArray(escena_cubica.VAO);             // Activamos VAO del cubo
 	glDrawArrays(GL_TRIANGLES, 0, escena_cubica.Nv);  // Dibujamos todos los triangulos del cubo
 	glBindVertexArray(0);                             // Desconectamos VAO
-
-	////////////////////////////////////////////////////////
 }
 
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /// PROGRAMA PRINCIPAL
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// Programa principal
 int main(int argc, char* argv[])
 {
 	init_GLFW();            // Inicializa lib GLFW
 	window = Init_Window(prac);  // Crea ventana usando GLFW, asociada a un contexto OpenGL	X.Y
-	load_Opengl();         // Carga funciones de OpenGL, comprueba versi�n.
+	load_Opengl();         // Carga funciones de OpenGL, comprueba versión.
 	init_scene();          // Prepara escena
 	
 	// Hacemos que se sincronice con la tasa de refresco del monitor
@@ -296,8 +299,7 @@ int main(int argc, char* argv[])
 	exit(EXIT_SUCCESS);
 }
 
-
-//////////  FUNCION PARA MOSTRAR INFO OPCIONAL EN EL TITULO DE VENTANA  //////////
+// Función para mostrar información en el título de la ventana
 void show_info()
 {
 	static int fps = 0;
@@ -352,9 +354,8 @@ bool check_movement_collision(vec3& new_pos, float& radius) {
 
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////  ASIGNACON FUNCIONES CALLBACK
+//////////////////////  ASIGNACIÓN FUNCIONES CALLBACK
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 
 // Callback de cambio tamaño de ventana
 void ResizeCallback(GLFWwindow* window, int width, int height)
@@ -365,64 +366,64 @@ void ResizeCallback(GLFWwindow* window, int width, int height)
 	ANCHO = width;
 
 	// Actualizamos aspect ratio para la matriz de proyeccion
-	aspect = (float)ANCHO / (float)ALTO; 
+	aspect_ratio = (float)ANCHO / (float)ALTO; 
 
 	// Actualizamos fov proporcionalmente al cambio de aspect ratio
-	fov = 60.0f * (4.0f / 3.0f) / aspect;
+	cam_fov = 60.0f * (4.0f / 3.0f) / aspect_ratio;
 }
 
 // Callback de pulsacion de tecla
 static void KeyCallback(GLFWwindow* window, int key, int code, int action, int mode)
 {
-	fprintf(stdout, "Key %d Code %d Act %d Mode %d Pos (%f, %f, %f)\n", key, code, action, mode, pos_obs.x, pos_obs.y, pos_obs.z);
+	fprintf(stdout, "Key %d Code %d Act %d Mode %d Pos (%f, %f, %f)\n", key, code, action, mode, cam_pos.x, cam_pos.y, cam_pos.z);
 	
 	if (key == GLFW_KEY_ESCAPE) {
 		glfwSetWindowShouldClose(window, true);
 	}
 	// Movimiento hacia adelante (W)
 	else if (key == GLFW_KEY_W){
-		vec3 move = glm::normalize(vec3(front.x, 0.0f, front.z)) * speed;
-		vec3 new_pos = pos_obs + move;
-		if (!check_movement_collision(new_pos, collision_radius)) {
-			pos_obs = new_pos;
+		vec3 move = glm::normalize(vec3(cam_target.x, 0.0f, cam_target.z)) * cam_speed;
+		vec3 new_pos = cam_pos + move;
+		if (!check_movement_collision(new_pos, cam_collision_radius)) {
+			cam_pos = new_pos;
 		}
 	}
 	// Movimiento hacia atrás (S)
 	else if (key == GLFW_KEY_S){
-		vec3 move = glm::normalize(vec3(front.x, 0.0f, front.z)) * speed;
-		vec3 new_pos = pos_obs - move;
-		if (!check_movement_collision(new_pos, collision_radius)) {
-			pos_obs = new_pos;
+		vec3 move = glm::normalize(vec3(cam_target.x, 0.0f, cam_target.z)) * cam_speed;
+		vec3 new_pos = cam_pos - move;
+		if (!check_movement_collision(new_pos, cam_collision_radius)) {
+			cam_pos = new_pos;
 		}
 	}
 	// Movimiento hacia la derecha (D)
 	else if (key == GLFW_KEY_D){
-		vec3 right = glm::normalize(glm::cross(front, up));
-		vec3 new_pos = pos_obs + right * speed;
-		if (!check_movement_collision(new_pos, collision_radius)) {
-			pos_obs = new_pos;
+		vec3 right = glm::normalize(glm::cross(cam_target, cam_up));
+		vec3 new_pos = cam_pos + right * cam_speed;
+		if (!check_movement_collision(new_pos, cam_collision_radius)) {
+			cam_pos = new_pos;
 		}
 	}
 	// Movimiento hacia la izquierda (A)
 	else if (key == GLFW_KEY_A){
-		vec3 right = glm::normalize(glm::cross(front, up));
-		vec3 new_pos = pos_obs - right * speed;
-		if (!check_movement_collision(new_pos, collision_radius)) {
-			pos_obs = new_pos;
+		vec3 right = glm::normalize(glm::cross(cam_target, cam_up));
+		vec3 new_pos = cam_pos - right * cam_speed;
+		if (!check_movement_collision(new_pos, cam_collision_radius)) {
+			cam_pos = new_pos;
 		}
 	}
 	// Movimiento hacia arriba (Q)
 	else if (key == GLFW_KEY_Q){
-		vec3 new_pos = pos_obs + up * speed;
-		if (!check_movement_collision(new_pos, collision_radius)) {
-			pos_obs = new_pos;
+		vec3 new_pos = cam_pos + cam_up * cam_speed;
+		if (!check_movement_collision(new_pos, cam_collision_radius)) {
+			cam_pos = new_pos;
 		}
 	}
 	// Movimiento hacia abajo (E)
 	else if (key == GLFW_KEY_E){
-		vec3 new_pos = pos_obs - up * speed;
-		if (!check_movement_collision(new_pos, collision_radius)) {
-			pos_obs = new_pos;
+		vec3 new_pos = cam_pos - cam_up * cam_speed;
+		if (!check_movement_collision(new_pos, cam_collision_radius)) {
+			cam_pos = new_pos;
 		}
 	}
 	// Rotación hacia la izquierda (Z)
@@ -431,8 +432,8 @@ static void KeyCallback(GLFWwindow* window, int key, int code, int action, int m
 		float angle = glm::radians(-5.0f); // 5 grados antiohorario
 		float cos_a = cos(angle);
 		float sin_a = sin(angle);
-		front.x = front.x * cos_a - front.z * sin_a;
-		front.z = front.x * sin_a + front.z * cos_a;
+		cam_target.x = cam_target.x * cos_a - cam_target.z * sin_a;
+		cam_target.z = cam_target.x * sin_a + cam_target.z * cos_a;
 	}
 	// Rotación hacia la derecha (X)
 	else if (key == GLFW_KEY_X){
@@ -440,8 +441,8 @@ static void KeyCallback(GLFWwindow* window, int key, int code, int action, int m
 		float angle = glm::radians(5.0f); // 5 grados
 		float cos_a = cos(angle);
 		float sin_a = sin(angle);
-		front.x = front.x * cos_a - front.z * sin_a;
-		front.z = front.x * sin_a + front.z * cos_a;
+		cam_target.x = cam_target.x * cos_a - cam_target.z * sin_a;
+		cam_target.z = cam_target.x * sin_a + cam_target.z * cos_a;
 	}
 }
 
@@ -450,3 +451,6 @@ void asigna_funciones_callback(GLFWwindow* window)
 	glfwSetWindowSizeCallback(window, ResizeCallback);
 	glfwSetKeyCallback(window, KeyCallback);
 }
+
+
+
