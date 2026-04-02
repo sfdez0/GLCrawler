@@ -324,15 +324,20 @@ void show_info()
 ////////////     FUNCIONES AUXILIARES 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// Función para limitar un valor entre un mínimo y un máximo
+float clamp(float value, float min, float max) {
+	return glm::max(min, glm::min(value, max));
+}
+
 // Función para calcular si existe colision entre una esfera y una bounding box
 bool sphere_aabb_collision(vec3& sphere_center, float& radius, const BoundingBox& box) {
 	// Buscamos el punto más cercano en la caja al centro de la esfera
 	vec3 closest;
 	// Por cada eje, comprobamos si el centro está dentro de los límites de la caja y ajustamos el punto más cercano en consecuencia
-	closest.x = glm::max(box.min.x, glm::min(sphere_center.x, box.max.x));
-	closest.y = glm::max(box.min.y, glm::min(sphere_center.y, box.max.y));
-	closest.z = glm::max(box.min.z, glm::min(sphere_center.z, box.max.z));
-	
+	closest.x = clamp(sphere_center.x, box.min.x, box.max.x);
+	closest.y = clamp(sphere_center.y, box.min.y, box.max.y);
+	closest.z = clamp(sphere_center.z, box.min.z, box.max.z);
+
 	// Calculamos la distancia entre el centro de la esfera y el punto más cercano de la caja
 	float distance = glm::length(sphere_center - closest);
 	return distance < radius;
