@@ -3,13 +3,22 @@ ATG, 2019
 ******************************************************************************/
 
 #include <GpO.h>
+#include <vector>
 
 // TAMA�O y TITULO INICIAL de la VENTANA
 int ANCHO = 800, ALTO = 600;  // Tama�o inicial ventana
 const char* prac = "OpenGL (GpO)";   // Nombre de la practica (aparecera en el titulo de la ventana).
 
+// Estructura para Bounding Box
+struct BoundingBox {
+	vec3 min;
+	vec3 max;
+};
 
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Vector de bounding boxes para colisiones
+std::vector<BoundingBox> collision_boxes;
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////     CODIGO SHADERS 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -175,6 +184,23 @@ void init_scene()
     
 	escena_cubica = crear_escena_cubica();  // Crear el escenario cubico
 
+	// Inicializamos el vector de bounding boxes de colisión
+	collision_boxes.clear();
+	
+	// Creamos las bounding boxes para cada pared del cubo
+	// Pared frontal (z = 10)
+	collision_boxes.push_back({vec3(-5.0f, -2.0f, 9.5f), vec3(5.0f, 2.0f, 10.0f)});
+	// Pared trasera (z = -10)
+	collision_boxes.push_back({vec3(-5.0f, -2.0f, -10.0f), vec3(5.0f, 2.0f, -9.5f)});
+	// Pared derecha (x = 5)
+	collision_boxes.push_back({vec3(4.5f, -2.0f, -10.0f), vec3(5.0f, 2.0f, 10.0f)});
+	// Pared izquierda (x = -5)
+	collision_boxes.push_back({vec3(-5.0f, -2.0f, -10.0f), vec3(-4.5f, 2.0f, 10.0f)});
+	// Techo (y = 2)
+	collision_boxes.push_back({vec3(-5.0f, 1.5f, -10.0f), vec3(5.0f, 2.0f, 10.0f)});
+	// Suelo (y = -2)
+	collision_boxes.push_back({vec3(-5.0f, -2.0f, -10.0f), vec3(5.0f, -1.5f, 10.0f)});
+
 	// Habilitamos test de profundidad para renderizar correctamente las caras
 	glEnable(GL_DEPTH_TEST);
 
@@ -205,13 +231,14 @@ void init_scene()
 }
 
 
+// Variables para la cámara
 vec3 pos_obs = vec3(0.0f, 0.0f, 0.0f); // Posición inicial de la cámara (observador)
 vec3 front = vec3(0.0f, 0.0f, 1.0f); // Dirección hacia donde mira la cámara
 vec3 up = vec3(0.0f, 1.0f, 0.0f); // Vector "arriba" de la cámara
-
 float fov = 60.0f; // Campo de visión inicial
 float aspect = 4.0f / 3.0f; // Aspect ratio inicial (proporción de la ventana)
-float speed = 0.2f;  // Velocidad de movimiento de la cámara
+float speed = 0.2f; // Velocidad de movimiento de la cámara
+float collision_radius = 0.5f; // Radio de colisión de la cámara
 
 // Actualizar escena: cambiar posicion objetos, nuevos objetros, posicion camara, luces, etc.
 void render_scene()
@@ -290,6 +317,40 @@ void show_info()
 
 }
 
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////     FUNCIONES AUXILIARES 
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// Función para calcular si existe colision entre una esfera y una bounding box
+bool sphere_aabb_collision(vec3& sphere_center, float& radius, const BoundingBox& box) {
+	// Buscamos el punto más cercano en la caja al centro de la esfera
+	vec3 closest;
+	// Por cada eje, comprobamos si el centro está dentro de los límites de la caja y ajustamos el punto más cercano en consecuencia
+	closest.x = glm::max(box.min.x, glm::min(sphere_center.x, box.max.x));
+	closest.y = glm::max(box.min.y, glm::min(sphere_center.y, box.max.y));
+	closest.z = glm::max(box.min.z, glm::min(sphere_center.z, box.max.z));
+	
+	// Calculamos la distancia entre el centro de la esfera y el punto más cercano de la caja
+	float distance = glm::length(sphere_center - closest);
+	return distance < radius;
+}
+
+// Función para verificar si hay colisiones entre una esfera y una bounding box
+bool check_movement_collision(vec3& new_pos, float& radius) {
+	// Iteramos por todas las bounding boxes de colisión
+	for (const BoundingBox& box : collision_boxes) {
+		// Comprobamos si la esfera colisiona con la caja
+		if (sphere_aabb_collision(new_pos, radius, box)) {
+			fprintf(stdout, "Collision detected\n");
+			return true;
+		}
+	}
+
+	return false;
+}
+
+
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////  ASIGNACON FUNCIONES CALLBACK
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -321,30 +382,48 @@ static void KeyCallback(GLFWwindow* window, int key, int code, int action, int m
 	// Movimiento hacia adelante (W)
 	else if (key == GLFW_KEY_W){
 		vec3 move = glm::normalize(vec3(front.x, 0.0f, front.z)) * speed;
-		pos_obs += move;
+		vec3 new_pos = pos_obs + move;
+		if (!check_movement_collision(new_pos, collision_radius)) {
+			pos_obs = new_pos;
+		}
 	}
 	// Movimiento hacia atrás (S)
 	else if (key == GLFW_KEY_S){
 		vec3 move = glm::normalize(vec3(front.x, 0.0f, front.z)) * speed;
-		pos_obs -= move;
+		vec3 new_pos = pos_obs - move;
+		if (!check_movement_collision(new_pos, collision_radius)) {
+			pos_obs = new_pos;
+		}
 	}
 	// Movimiento hacia la derecha (D)
 	else if (key == GLFW_KEY_D){
 		vec3 right = glm::normalize(glm::cross(front, up));
-		pos_obs += right * speed;
+		vec3 new_pos = pos_obs + right * speed;
+		if (!check_movement_collision(new_pos, collision_radius)) {
+			pos_obs = new_pos;
+		}
 	}
 	// Movimiento hacia la izquierda (A)
 	else if (key == GLFW_KEY_A){
 		vec3 right = glm::normalize(glm::cross(front, up));
-		pos_obs -= right * speed;
+		vec3 new_pos = pos_obs - right * speed;
+		if (!check_movement_collision(new_pos, collision_radius)) {
+			pos_obs = new_pos;
+		}
 	}
 	// Movimiento hacia arriba (Q)
 	else if (key == GLFW_KEY_Q){
-		pos_obs += up * speed;
+		vec3 new_pos = pos_obs + up * speed;
+		if (!check_movement_collision(new_pos, collision_radius)) {
+			pos_obs = new_pos;
+		}
 	}
 	// Movimiento hacia abajo (E)
 	else if (key == GLFW_KEY_E){
-		pos_obs -= up * speed;
+		vec3 new_pos = pos_obs - up * speed;
+		if (!check_movement_collision(new_pos, collision_radius)) {
+			pos_obs = new_pos;
+		}
 	}
 	// Rotación hacia la izquierda (Z)
 	else if (key == GLFW_KEY_Z){
@@ -365,7 +444,6 @@ static void KeyCallback(GLFWwindow* window, int key, int code, int action, int m
 		front.z = front.x * sin_a + front.z * cos_a;
 	}
 }
-
 
 void asigna_funciones_callback(GLFWwindow* window)
 {
