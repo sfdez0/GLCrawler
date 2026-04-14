@@ -293,8 +293,6 @@ objeto cargar_modelo(char* fichero)
 	GLuint VAO;
 	GLuint buffer,i_buffer;
 	
-	
-
 	GLuint N_vertices, N_caras, N_indices; 
 
 	unsigned char *vertex_data; 

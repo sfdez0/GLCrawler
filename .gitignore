@@ -1,6 +1,2 @@
-/libs
-/include
-/data
 /CMake
 /build
-CMakeLists.txt
