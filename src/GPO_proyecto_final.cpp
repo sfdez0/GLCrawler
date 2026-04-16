@@ -4,6 +4,7 @@ ATG, 2019
 
 #include <GpO.h>
 #include <vector>
+#include <maze.h>
 
 // TAMAÑO y TITULO INICIAL de la VENTANA
 int ANCHO = 800, ALTO = 600;  // Tamaño inicial ventana
@@ -55,71 +56,106 @@ GLFWwindow* window;
 GLuint prog;
 objeto escena_cubica; // Objeto para el escenario del laberinto
 
-// Función que crea un rectángulo 3D (escenario del laberinto)
-// Dimensiones: Ancho(X) 10, Alto(Y) 4, Profundidad(Z) 20
-objeto crear_escena_cubica(void)
-{
+/**
+ * Función para crear el escenario del laberinto
+ * Genera cubos para cada pared del mapa 2D
+ */
+objeto crear_escena(void){
 	objeto obj;
 	GLuint VAO;
 	GLuint buffer_pos, buffer_col;
+	
+	// Creamos el laberinto con 10 filas, 10 columnas y tamaño de celda 2.0 unidades
+	maze = new Maze(10, 10, 2.0f);
 
-	// Definimos los 36 vértices del cubo (6 caras x 2 tríangulos x 3 vértices)
-	// Dimensiones: X(-5 a 5), Y(-2 a 2), Z(-10 a 10)
-	GLfloat pos_data[36][3] = {
-		// Cara frontal (z = 10) - Rojo
-		-5.0f, -2.0f,  10.0f,   // tri 1: inf-izq
-		 5.0f, -2.0f,  10.0f,   //        inf-der
-		 5.0f,  2.0f,  10.0f,   //        sup-der
-		-5.0f, -2.0f,  10.0f,   // tri 2: inf-izq
-		 5.0f,  2.0f,  10.0f,   //        sup-der
-		-5.0f,  2.0f,  10.0f,   //        sup-izq
+	// (1 = muro, 0 = vacío)
+	int map[] = {
+		1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 0, 0, 1, 0, 0, 0, 1, 0, 1,
+        1, 0, 1, 1, 0, 1, 0, 1, 0, 1,
+        1, 0, 0, 0, 0, 1, 0, 0, 0, 1,
+        1, 1, 0, 1, 1, 1, 1, 0, 1, 1,
+        1, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+        1, 0, 1, 1, 0, 1, 1, 1, 0, 1,
+        1, 0, 0, 1, 0, 0, 0, 0, 0, 1,
+        1, 1, 0, 1, 1, 1, 0, 1, 0, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+	};
 
-		// Cara trasera (z = -10) - Verde
-		 5.0f, -2.0f, -10.0f,   // tri 1: inf-der
-		-5.0f, -2.0f, -10.0f,   //        inf-izq
-		-5.0f,  2.0f, -10.0f,   //        sup-izq
-		 5.0f, -2.0f, -10.0f,   // tri 2: inf-der
-		-5.0f,  2.0f, -10.0f,   //        sup-izq
-		 5.0f,  2.0f, -10.0f,   //        sup-der
+	// Cargamos el mapa en la clase Maze
+	maze->setMap(map, 10, 10);
 
-		// Cara derecha (x = 5) - 2 Azul
-		 5.0f, -2.0f,  10.0f,   // tri 1: inf-der
-		 5.0f, -2.0f, -10.0f,   //        inf-izq
-		 5.0f,  2.0f, -10.0f,   //        sup-izq
-		 5.0f, -2.0f,  10.0f,   // tri 2: inf-der
-		 5.0f,  2.0f, -10.0f,   //        sup-izq
-		 5.0f,  2.0f,  10.0f,   //        sup-der
+	// Contamos cuantos cubos necesitamos
+	int wall_count = 0;
+	for (int i = 0; i < maze->getRows(); i++){
+		for(int j = 0; j < maze->getColumns(); j++){
+			if (maze->getGrid(i, j) == 1){
+				wall_count++;
+			}
+		}
+	}
 
-		// Cara izquierda (x = -5) - Amarillo
-		-5.0f, -2.0f, -10.0f,   // tri 1: inf-der
-		-5.0f, -2.0f,  10.0f,   //        inf-izq
-		-5.0f,  2.0f,  10.0f,   //        sup-izq
-		-5.0f, -2.0f, -10.0f,   // tri 2: inf-der
-		-5.0f,  2.0f,  10.0f,   //        sup-izq
-		-5.0f,  2.0f, -10.0f,   //        sup-der
+	// Cada cubo tiene 36 vértices (6 caras x 2 triángulos x 3 vértices)
+	// Calculamos el número total de vértices necesarios para todas las paredes
+	int total_vertices = wall_count * 36;
 
-		// Cara superior (y = 2) - Cian
-		-5.0f,  2.0f,  10.0f,   // tri 1: izq-atras
-		 5.0f,  2.0f,  10.0f,   //        der-atras
-		 5.0f,  2.0f, -10.0f,   //        der-frente
-		-5.0f,  2.0f,  10.0f,   // tri 2: izq-atras
-		 5.0f,  2.0f, -10.0f,   //        der-frente
-		-5.0f,  2.0f, -10.0f,   //        izq-frente
+	// Creamos arrays para posiciones y colores de los vértices
+	GLfloat* pos_data = new GLfloat[total_vertices * 3];
+	GLfloat* color_data = new GLfloat[total_vertices * 3];
 
-		// Cara inferior (y = -2) - Magenta
-		-5.0f, -2.0f, -10.0f,   // tri 1: izq-frente
-		 5.0f, -2.0f, -10.0f,   //        der-frente
-		 5.0f, -2.0f,  10.0f,   //        der-atras
-		-5.0f, -2.0f, -10.0f,   // tri 2: izq-frente
-		 5.0f, -2.0f,  10.0f,   //        der-atras
-		-5.0f, -2.0f,  10.0f    //        izq-atras
+	// Definimos un cubo unitario centrado en el origen (0,0,0) con tamaño 1x1x1
+	GLfloat cube_vertices[36][3] = {
+		// Cara frontal (z = 1) - Rojo
+		-0.5f, -0.5f,  0.5f,   // tri 1: inf-izq
+		 0.5f, -0.5f,  0.5f,   //        inf-der
+		 0.5f,  0.5f,  0.5f,   //        sup-der
+		-0.5f, -0.5f,  0.5f,   // tri 2: inf-izq
+		 0.5f,  0.5f,  0.5f,   //        sup-der
+		-0.5f,  0.5f,  0.5f,   //        sup-izq
+
+		// Cara trasera (z = -0.5)  - Verde
+		 0.5f, -0.5f, -0.5f,   // tri 1: inf-der
+		-0.5f, -0.5f, -0.5f,   //        inf-izq
+		-0.5f,  0.5f, -0.5f,   //        sup-izq
+		 0.5f, -0.5f, -0.5f,   // tri 2: inf-der
+		-0.5f,  0.5f, -0.5f,   //        sup-izq
+		 0.5f,  0.5f, -0.5f,   //        sup-der
+
+		// Cara derecha (x = 0.5) - Azul
+		 0.5f, -0.5f,  0.5f,   // tri 1: inf-der
+		 0.5f, -0.5f, -0.5f,   //        inf-izq
+		 0.5f,  0.5f, -0.5f,   //        sup-izq
+		 0.5f, -0.5f,  0.5f,   // tri 2: inf-der
+		 0.5f,  0.5f, -0.5f,   //        sup-izq
+		 0.5f,  0.5f,  0.5f,   //        sup-der
+
+		// Cara izquierda (x = -0.5) - Amarillo
+		-0.5f, -0.5f, -0.5f,   // tri 1: inf-der
+		-0.5f, -0.5f,  0.5f,   //        inf-izq
+		-0.5f,  0.5f,  0.5f,   //        sup-izq
+		-0.5f, -0.5f, -0.5f,   // tri 2: inf-der
+		-0.5f,  0.5f,  0.5f,   //        sup-izq
+		-0.5f,  0.5f, -0.5f,   //        sup-der
+
+		// Cara superior (y = 0.5) - Cian
+		-0.5f,  0.5f,  0.5f,   // tri 1: izq-atras
+		 0.5f,  0.5f,  0.5f,   //        der-atras
+		 0.5f,  0.5f, -0.5f,   //        der-frente
+		-0.5f,  0.5f,  0.5f,   // tri 2: izq-atras
+		 0.5f,  0.5f, -0.5f,   //        der-frente
+		-0.5f,  0.5f, -0.5f,   //        izq-frente
+
+		// Cara inferior (y = -0.5) - Magenta
+		-0.5f, -0.5f, -0.5f,   // tri 1: izq-frente
+		 0.5f, -0.5f, -0.5f,   //        der-frente
+		 0.5f, -0.5f,  0.5f,   //        der-atras
+		-0.5f, -0.5f, -0.5f,   // tri 2: izq-frente
+		 0.5f, -0.5f,  0.5f,   //        der-atras
+		-0.5f, -0.5f,  0.5f    //        izq-atras
 	};
 
 	// Colores para cada cara
-	GLfloat color_data[36][3];
-	
-	// Definimos los colores para cada cara
-	GLfloat colors[6][3] = {
+	GLfloat cube_colors[6][3] = {
 		{1.0f, 0.0f, 0.0f},  // Rojo (frontal)
 		{0.0f, 1.0f, 0.0f},  // Verde (trasera)
 		{0.0f, 0.0f, 1.0f},  // Azul (derecha)
@@ -127,28 +163,48 @@ objeto crear_escena_cubica(void)
 		{0.0f, 1.0f, 1.0f},  // Cian (superior/techo)
 		{1.0f, 0.0f, 1.0f}   // Magenta (inferior/suelo)
 	};
-	
-	// Bucle para asignar colores a todos los vértices
-	for (int i = 0; i < 36; i++) {
-		// Determinamos a que cara pertenece el vértice
-		int face = i / 6; 
 
-		// Aplicamos el color RGB
-		color_data[i][0] = colors[face][0];
-		color_data[i][1] = colors[face][1];
-		color_data[i][2] = colors[face][2];
+	// Recorremos el mapa y creamos un cubo por cada pared
+	int vertex_index = 0;
+	float tile_size = maze->getTileSize(); // Tamaño de cada celda del mapa
+	for (int i = 0; i < maze->getRows(); i++){
+		for(int j = 0; j < maze->getColumns(); j++){
+			// Si hay muro en esta celda, creamos un cubo
+			if (maze->getGrid(i, j) == 1){
+				// Posición central del cubo basada en coordenadas del mapa (para centrar en origen quitar comentario)
+				float posX = j * tile_size; // - (maze->getColumns() * tile_size) / 2.0f;
+				float posZ = i * tile_size; // - (maze->getRows() * tile_size) / 2.0f;
+				float posY = tile_size / 2.0f; // Altura del cubo
+
+				// Copiamos los vértices del cubo unitario, escalándolos y trasladándolos a su posición
+				for (int k = 0; k < 36; k++){
+					int v_index = vertex_index; // Índice para el vértice actual
+					pos_data[v_index] = cube_vertices[k][0] * tile_size + posX;
+					pos_data[v_index + 1] = cube_vertices[k][1] * tile_size + posY;
+					pos_data[v_index + 2] = cube_vertices[k][2] * tile_size + posZ;
+
+					// Asignamos color basado en la cara
+					int face = k / 6; // cada cara 6 vértices
+					color_data[v_index] = cube_colors[face][0];
+					color_data[v_index + 1] = cube_colors[face][1];
+					color_data[v_index + 2] = cube_colors[face][2];
+
+					vertex_index += 3;
+				}
+			}
+		}
 	}
 
 	// Mandamos posiciones en un VBO
 	glGenBuffers(1, &buffer_pos); 
 	glBindBuffer(GL_ARRAY_BUFFER, buffer_pos);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(pos_data), pos_data, GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, total_vertices * 3 * sizeof(GLfloat), pos_data, GL_STATIC_DRAW);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 	// Mandamos colores en otro VBO
 	glGenBuffers(1, &buffer_col); 
 	glBindBuffer(GL_ARRAY_BUFFER, buffer_col);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(color_data), color_data, GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, total_vertices * 3 * sizeof(GLfloat), color_data, GL_STATIC_DRAW);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 	// Creamos y enlazamos el VAO
@@ -172,7 +228,7 @@ objeto crear_escena_cubica(void)
 
 	// Devolvemos objeto VAO + número de vértices en estructura obj
 	obj.VAO = VAO; 
-	obj.Nv = 36;
+	obj.Nv = total_vertices;
 	return obj;
 }
 
@@ -203,6 +259,7 @@ void init_scene()
 	collision_boxes.push_back({vec3(-5.0f, 1.5f, -10.0f), vec3(5.0f, 2.0f, 10.0f)});
 	// Suelo (y = -2)
 	collision_boxes.push_back({vec3(-5.0f, -2.0f, -10.0f), vec3(5.0f, -1.5f, 10.0f)});
+	escena_cubica = crear_escena();  // Crear el escenario del laberinto con todas las paredes
 
 	// Habilitamos test de profundidad para renderizar correctamente las caras
 	glEnable(GL_DEPTH_TEST);
