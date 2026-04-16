@@ -66,8 +66,8 @@ objeto crear_escena(void){
 	GLuint VAO;
 	GLuint buffer_pos, buffer_col;
 	
-	// Creamos el laberinto con 15 filas, 15 columnas y tamaño de celda 2.0 unidades
-	maze = new Maze(15, 15, 2.0f);
+	// Creamos el laberinto con 15 filas, 15 columnas y tamaño de celda 4.0 unidades
+	maze = new Maze(15, 4.0f);
 
 	// (1 = muro, 0 = vacío)
 	int map[] = {
@@ -89,7 +89,7 @@ objeto crear_escena(void){
 	};
 
 	// Cargamos el mapa en la clase Maze
-	maze->setMap(map, 15, 15);
+	maze->setMap(map, 15);
 
 	// Contamos cuantos cubos necesitamos
 	int wall_count = 0;

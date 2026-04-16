@@ -3,12 +3,11 @@
 
 /**
  * Constructor de Maze
- * `r` Número de filas del mapa
- * `c` Número de columnas del mapa
+ * `r` Número de filas y columnas del mapa (cuadrado)
  * `size` Tamaño de cada celda en unidades 3D (por defecto 2.0f)
  */
-Maze::Maze(int r, int c, float size) 
-: rows(r), columns(c), tile_size(size) {
+Maze::Maze(int r, float size) 
+: rows(r), columns(r), tile_size(size) {
     // Inicializamos la matriz con cero
     map.resize(rows, std::vector<int>(columns, 0));
 }
@@ -24,15 +23,14 @@ Maze::~Maze() {
 /**
  * Función para establecer el mapa a partir de un array de enteros
  * `datos` Arreglo 1D con los datos del mapa (1 = muro, 0 = vacío)
- * `r` Número de filas del mapa
- * `c` Número de columnas del mapa
+ * `r` Número de filas del mapa (debe coincidir con el número de columnas para un mapa cuadrado)
  */
-void Maze::setMap(const int* datos, int r, int c) {
+void Maze::setMap(const int* datos, int r) {
     // Verificamos si el tamaño del mapa ha cambiado
-    if (r != rows || c != columns) {
+    if (r != rows || r != columns) {
         // Limpiamos y redimensionamos la matriz
         rows = r;
-        columns = c;
+        columns = r;
         map.clear();
         map.resize(rows, std::vector<int>(columns));
     }
