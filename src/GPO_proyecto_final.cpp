@@ -232,6 +232,10 @@ objeto crear_escena(void){
 	// Cerramos VAO con todo listo para ser pintado
 	glBindVertexArray(0);
 
+	// Borramos datos, ya están en la GPU
+	delete[] pos_data;
+	delete[] color_data;
+
 	// Devolvemos objeto VAO + número de vértices en estructura obj
 	obj.VAO = VAO; 
 	obj.Nv = total_vertices;
