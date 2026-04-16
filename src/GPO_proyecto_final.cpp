@@ -102,8 +102,8 @@ objeto crear_escena(void){
 	}
 
 	// Cada cubo tiene 36 vértices (6 caras x 2 triángulos x 3 vértices)
-	// Calculamos el número total de vértices necesarios para todas las paredes
-	int total_vertices = wall_count * 36;
+	// Calculamos el número total de vértices necesarios para todas las paredes + 1 suelo
+	int total_vertices = (wall_count + 1) * 36;
 
 	// Creamos arrays para posiciones y colores de los vértices
 	GLfloat* pos_data = new GLfloat[total_vertices * 3];
@@ -173,13 +173,14 @@ objeto crear_escena(void){
 	// Recorremos el mapa y creamos un cubo por cada pared
 	int vertex_index = 0;
 	float tile_size = maze->getTileSize(); // Tamaño de cada celda del mapa
+	float maze_center_xz = (maze->getColumns() * tile_size) / 2.0f; // Simétrico en XZ
 	for (int i = 0; i < maze->getRows(); i++){
 		for(int j = 0; j < maze->getColumns(); j++){
 			// Si hay muro en esta celda, creamos un cubo
 			if (maze->getGrid(i, j) == 1){
-				// Posición central del cubo basada en coordenadas del mapa (para centrar en origen quitar comentario)
-				float posX = j * tile_size; // - (maze->getColumns() * tile_size) / 2.0f;
-				float posZ = i * tile_size; // - (maze->getRows() * tile_size) / 2.0f;
+				// Posición central del cubo basada en coordenadas del mapa
+				float posX = j * tile_size - maze_center_xz;
+				float posZ = i * tile_size - maze_center_xz;
 				float posY = tile_size / 2.0f; // Altura del cubo
 
 				// Copiamos los vértices del cubo unitario, escalándolos y trasladándolos a su posición
@@ -199,6 +200,29 @@ objeto crear_escena(void){
 				}
 			}
 		}
+	}
+
+	// Para crear el suelo primero calculamos el tamaño total del laberinto
+	float maze_wh = maze->getColumns() * tile_size * 2; // Simétrico en XZ
+	float floor_thickness = 0.5f;
+	
+	// Calculamos la escala para que cubra todo el laberinto
+	float scale_xz = maze_wh / 2.0f; // /2 porque va de -0.5 a 0.5
+	float scale_y = floor_thickness / 2.0f;
+	
+	// Copiamos los vértices del cubo unitario, escalándolos y trasladándolos a su posición
+	for (int k = 0; k < 36; k++){
+		int v_index = vertex_index; // Índice para el vértice actual
+		pos_data[v_index] = cube_vertices[k][0] * scale_xz;
+		pos_data[v_index + 1] = cube_vertices[k][1] * scale_y;
+		pos_data[v_index + 2] = cube_vertices[k][2] * scale_xz;
+		
+		// Color del suelo: gris oscuro (0.4, 0.4, 0.4)
+		color_data[v_index] = 0.4f;
+		color_data[v_index + 1] = 0.4f;
+		color_data[v_index + 2] = 0.4f;
+		
+		vertex_index += 3;
 	}
 
 	// Mandamos posiciones en un VBO
