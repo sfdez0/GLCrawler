@@ -1,23 +1,24 @@
-/************************  GPO_01 ************************************
-ATG, 2019
-******************************************************************************/
+/**
+ * Proyecto final de GpO
+ * Título: Dungeon Crawler 3D
+ * ATG, 2019
+ */
 
 #include <GpO.h>
 #include <vector>
 #include <maze.h>
 
-// TAMAÑO y TITULO INICIAL de la VENTANA
-int ANCHO = 800, ALTO = 600;  // Tamaño inicial ventana
-const char* prac = "OpenGL (GpO)"; // Nombre de la practica (aparecera en el titulo de la ventana).
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////     VARIABLES GLOBALES 
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Tamaño inicial ventana
+int ANCHO = 800, ALTO = 600; 
 
-// Estructura para Bounding Box
-struct BoundingBox {
-	vec3 min;
-	vec3 max;
-};
+// Título de la ventana
+const char* prac = "OpenGL (GpO)"; 
 
-// Vector de bounding boxes para colisiones
-std::vector<BoundingBox> collision_boxes;
+// Puntero a la clase Maze que representa el mapa del laberinto
+Maze* maze; 
 
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -241,24 +242,6 @@ void init_scene()
     glfwGetFramebufferSize(window, &width, &height);
     glViewport(0, 0, width, height); 
     
-	escena_cubica = crear_escena_cubica();  // Crear el escenario cubico
-
-	// Inicializamos el vector de bounding boxes de colisión
-	collision_boxes.clear();
-	
-	// Creamos las bounding boxes para cada pared del cubo
-	// Pared frontal (z = 10)
-	collision_boxes.push_back({vec3(-5.0f, -2.0f, 9.5f), vec3(5.0f, 2.0f, 10.0f)});
-	// Pared trasera (z = -10)
-	collision_boxes.push_back({vec3(-5.0f, -2.0f, -10.0f), vec3(5.0f, 2.0f, -9.5f)});
-	// Pared derecha (x = 5)
-	collision_boxes.push_back({vec3(4.5f, -2.0f, -10.0f), vec3(5.0f, 2.0f, 10.0f)});
-	// Pared izquierda (x = -5)
-	collision_boxes.push_back({vec3(-5.0f, -2.0f, -10.0f), vec3(-4.5f, 2.0f, 10.0f)});
-	// Techo (y = 2)
-	collision_boxes.push_back({vec3(-5.0f, 1.5f, -10.0f), vec3(5.0f, 2.0f, 10.0f)});
-	// Suelo (y = -2)
-	collision_boxes.push_back({vec3(-5.0f, -2.0f, -10.0f), vec3(5.0f, -1.5f, 10.0f)});
 	escena_cubica = crear_escena();  // Crear el escenario del laberinto con todas las paredes
 
 	// Habilitamos test de profundidad para renderizar correctamente las caras
@@ -297,7 +280,6 @@ vec3 cam_target = vec3(0.0f, 0.0f, 1.0f); // Dirección hacia donde mira la cám
 vec3 cam_up = vec3(0.0f, 1.0f, 0.0f); // Vector "arriba" de la cámara
 float cam_fov = 60.0f; // Campo de visión inicial
 float cam_speed = 0.2f; // Velocidad de movimiento de la cámara
-float cam_collision_radius = 0.5f; // Radio de colisión de la cámara
 float aspect_ratio = 4.0f / 3.0f; // Aspect ratio inicial (proporción de la ventana)
 
 // Actualizar escena: cambiar posicion objetos, nuevos objetros, posicion camara, luces, etc.
@@ -330,7 +312,7 @@ void render_scene()
 
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
-/// PROGRAMA PRINCIPAL
+////////////     PROGRAMA PRINCIPAL
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Programa principal
@@ -381,43 +363,16 @@ void show_info()
 ////////////     FUNCIONES AUXILIARES 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Función para limitar un valor entre un mínimo y un máximo
-float clamp(float value, float min, float max) {
-	return glm::max(min, glm::min(value, max));
-}
-
-// Función para calcular si existe colision entre una esfera y una bounding box
-bool sphere_aabb_collision(vec3& sphere_center, float& radius, const BoundingBox& box) {
-	// Buscamos el punto más cercano en la caja al centro de la esfera
-	vec3 closest;
-	// Por cada eje, comprobamos si el centro está dentro de los límites de la caja y ajustamos el punto más cercano en consecuencia
-	closest.x = clamp(sphere_center.x, box.min.x, box.max.x);
-	closest.y = clamp(sphere_center.y, box.min.y, box.max.y);
-	closest.z = clamp(sphere_center.z, box.min.z, box.max.z);
-
-	// Calculamos la distancia entre el centro de la esfera y el punto más cercano de la caja
-	float distance = glm::length(sphere_center - closest);
-	return distance < radius;
-}
-
 // Función para verificar si hay colisiones entre una esfera y una bounding box
-bool check_movement_collision(vec3& new_pos, float& radius) {
-	// Iteramos por todas las bounding boxes de colisión
-	for (const BoundingBox& box : collision_boxes) {
-		// Comprobamos si la esfera colisiona con la caja
-		if (sphere_aabb_collision(new_pos, radius, box)) {
-			fprintf(stdout, "Collision detected\n");
-			return true;
-		}
-	}
-
-	return false;
+bool can_move(vec3& new_pos) {
+	return true; // Por ahora siempre permitimos el movimiento, sin colisiones
+	// return maze->isWalkable(new_pos);
 }
 
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////  ASIGNACIÓN FUNCIONES CALLBACK
-///////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////     ASIGNACIÓN FUNCIONES CALLBACK
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Callback de cambio tamaño de ventana
 void ResizeCallback(GLFWwindow* window, int width, int height)
@@ -446,7 +401,7 @@ static void KeyCallback(GLFWwindow* window, int key, int code, int action, int m
 	else if (key == GLFW_KEY_W){
 		vec3 move = glm::normalize(vec3(cam_target.x, 0.0f, cam_target.z)) * cam_speed;
 		vec3 new_pos = cam_pos + move;
-		if (!check_movement_collision(new_pos, cam_collision_radius)) {
+		if (can_move(new_pos)) {
 			cam_pos = new_pos;
 		}
 	}
@@ -454,7 +409,7 @@ static void KeyCallback(GLFWwindow* window, int key, int code, int action, int m
 	else if (key == GLFW_KEY_S){
 		vec3 move = glm::normalize(vec3(cam_target.x, 0.0f, cam_target.z)) * cam_speed;
 		vec3 new_pos = cam_pos - move;
-		if (!check_movement_collision(new_pos, cam_collision_radius)) {
+		if (can_move(new_pos)) {
 			cam_pos = new_pos;
 		}
 	}
@@ -462,7 +417,7 @@ static void KeyCallback(GLFWwindow* window, int key, int code, int action, int m
 	else if (key == GLFW_KEY_D){
 		vec3 right = glm::normalize(glm::cross(cam_target, cam_up));
 		vec3 new_pos = cam_pos + right * cam_speed;
-		if (!check_movement_collision(new_pos, cam_collision_radius)) {
+		if (can_move(new_pos)) {
 			cam_pos = new_pos;
 		}
 	}
@@ -470,21 +425,21 @@ static void KeyCallback(GLFWwindow* window, int key, int code, int action, int m
 	else if (key == GLFW_KEY_A){
 		vec3 right = glm::normalize(glm::cross(cam_target, cam_up));
 		vec3 new_pos = cam_pos - right * cam_speed;
-		if (!check_movement_collision(new_pos, cam_collision_radius)) {
+		if (can_move(new_pos)) {
 			cam_pos = new_pos;
 		}
 	}
 	// Movimiento hacia arriba (Q)
 	else if (key == GLFW_KEY_Q){
 		vec3 new_pos = cam_pos + cam_up * cam_speed;
-		if (!check_movement_collision(new_pos, cam_collision_radius)) {
+		if (can_move(new_pos)) {
 			cam_pos = new_pos;
 		}
 	}
 	// Movimiento hacia abajo (E)
 	else if (key == GLFW_KEY_E){
 		vec3 new_pos = cam_pos - cam_up * cam_speed;
-		if (!check_movement_collision(new_pos, cam_collision_radius)) {
+		if (can_move(new_pos)) {
 			cam_pos = new_pos;
 		}
 	}
@@ -513,6 +468,3 @@ void asigna_funciones_callback(GLFWwindow* window)
 	glfwSetWindowSizeCallback(window, ResizeCallback);
 	glfwSetKeyCallback(window, KeyCallback);
 }
-
-
-
