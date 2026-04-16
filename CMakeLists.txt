@@ -47,33 +47,6 @@ include_directories(${PROJECT_SOURCE_DIR}/include)
 include_directories(${PROJECT_SOURCE_DIR}/include/KHR)
 include_directories(${PROJECT_SOURCE_DIR}/include/stb)
 
-set(GPO_SOURCE_FILES include/stb/stb_image.h
-					 include/GpO.h
-					 src/GPO_01.cpp
-					 src/GPO_aux.cpp)
-add_executable(gpo_01 ${GPO_SOURCE_FILES})
-target_link_libraries(gpo_01 PRIVATE ${OPENGL_LIBRARIES} glfw glm glad_interface)
-
-set(GPO_SOURCE_FILES include/stb/stb_image.h
-					 include/GpO.h
-					 src/GPO_01_entrega.cpp
-					 src/GPO_aux.cpp)
-add_executable(gpo_01_entrega ${GPO_SOURCE_FILES})
-target_link_libraries(gpo_01_entrega PRIVATE ${OPENGL_LIBRARIES} glfw glm glad_interface)
-
-set(GPO_SOURCE_FILES include/stb/stb_image.h
-					 include/GpO.h
-					 src/GPO_02.cpp
-					 src/GPO_aux.cpp)
-add_executable(gpo_02 ${GPO_SOURCE_FILES})
-target_link_libraries(gpo_02 PRIVATE ${OPENGL_LIBRARIES} glfw glm glad_interface)
-
-set(GPO_SOURCE_FILES include/stb/stb_image.h
-					 include/GpO.h
-					 src/GPO_02_entrega.cpp
-					 src/GPO_aux.cpp)
-add_executable(gpo_02_entrega ${GPO_SOURCE_FILES})
-target_link_libraries(gpo_02_entrega PRIVATE ${OPENGL_LIBRARIES} glfw glm glad_interface)
 
 set(GPO_SOURCE_FILES include/stb/stb_image.h
 					 include/GpO.h
@@ -84,15 +57,6 @@ set(GPO_SOURCE_FILES include/stb/stb_image.h
 add_executable(gpo_proyecto_final ${GPO_SOURCE_FILES})
 target_link_libraries(gpo_proyecto_final PRIVATE ${OPENGL_LIBRARIES} glfw glm glad_interface)
 
-set_target_properties(gpo_01
-  PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
-set_target_properties(gpo_01_entrega
-  PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
-
-set_target_properties(gpo_02
-  PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
-set_target_properties(gpo_02_entrega
-  PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 
 set_target_properties(gpo_proyecto_final
   PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
