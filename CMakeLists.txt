@@ -77,8 +77,10 @@ target_link_libraries(gpo_02_entrega PRIVATE ${OPENGL_LIBRARIES} glfw glm glad_i
 
 set(GPO_SOURCE_FILES include/stb/stb_image.h
 					 include/GpO.h
+					 include/maze.h
 					 src/GPO_proyecto_final.cpp
-					 src/GPO_aux.cpp)
+					 src/GPO_aux.cpp
+					 src/maze.cpp)
 add_executable(gpo_proyecto_final ${GPO_SOURCE_FILES})
 target_link_libraries(gpo_proyecto_final PRIVATE ${OPENGL_LIBRARIES} glfw glm glad_interface)
 
