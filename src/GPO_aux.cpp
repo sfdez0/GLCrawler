@@ -178,7 +178,7 @@ GLuint cargar_textura(const char * imagepath, GLuint tex_unit)
   stbi_set_flip_vertically_on_load(true);
 
   int width, height,nrChannels;
-  unsigned char* data = stbi_load(imagepath, &width, &height,&nrChannels,0);
+  unsigned char* data = stbi_load(imagepath, &width, &height,&nrChannels,3);
 
   if (data == NULL)
   {

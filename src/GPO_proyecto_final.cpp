@@ -30,21 +30,62 @@ Maze* maze;
 // Vertex Shader (in: pos, color; out: col; uniform: MVP)
 const char* vertex_prog = GLSL(
 	layout(location = 0) in vec3 pos; // Posición del vértice
-	layout(location = 1) in vec3 color; // Color del vértice
-	out vec3 col; // Color que se pasará al fragment shader
+	layout(location = 1) in vec2 uv; // Coordenadas de textura
+	layout(location = 2) in vec3 normal; // Vector normal de la superficie
+	layout(location = 3) in vec3 tangent; // Vector tangente para normal mapping
+
+	out vec2 UV;
+	out vec3 FragPos;
+	out mat3 TBN;
+
 	uniform mat4 MVP = mat4(1.0f); // Matriz de transformación MVP
+	uniform mat4 M = mat4(1.0f);
+
 	void main() { 
-		gl_Position = MVP * vec4(pos,1); // Construimos coordenadas homogéneas y aplicamos matriz MVP
-		col = color; // Pasamos el color al fragment shader
+		gl_Position = MVP * vec4(pos,1); 
+		FragPos = vec3(M * vec4(pos,1));
+		UV = uv; 
+		vec3 T = normalize(vec3(M * vec4(tangent, 0)));
+		vec3 N = normalize(vec3(M * vec4(normal, 0)));
+		vec3 B = cross(N, T);
+		TBN = mat3(T, B, N);
 	}
 );
 
 // Fragment Shader (in: col; out: outputColor)
 const char* fragment_prog = GLSL(
-	in vec3 col; // Color recibido del vertex shader
+	in vec2 UV; // Color recibido del vertex shader
+	in vec3 FragPos;
+	in mat3 TBN;
+
+	uniform sampler2D tex;
+	uniform sampler2D normalMap;
+	uniform vec3 lightPos;
+	uniform vec3 camPos;
+
 	out vec3 outputColor; // Color final que se pintará en la pantalla
 	void main() {
-		outputColor = col;
+		vec3 texColor = texture(tex, UV).rgb;
+		vec3 torchColor = vec3(1.0, 0.9, 0.75);
+
+		vec3 N = texture(normalMap, UV).rgb;
+		N = N * 2.0 - 1.0;
+		N.xy *= 2.5;
+		N = normalize(TBN * N);
+
+		float ambient = 0.05;
+
+		vec3 L = normalize(lightPos - FragPos);
+		float diffuse = max(dot(N,L), 0.0);
+
+		vec3 V = normalize(camPos - FragPos);
+		vec3 R = reflect(-L, N);
+		float specular = pow(max(dot(V, R), 0.0), 4.0) * 0.15;
+
+		float dist = length(lightPos - FragPos);
+		float attenuation = 1.0 / (0.5 + 0.05 * dist + 0.02 * dist * dist);
+
+		outputColor = (texColor * (ambient + 1.5 * diffuse * attenuation) + vec3(specular * attenuation)) * torchColor ;
 	}
 );
 
@@ -64,7 +105,7 @@ objeto escena_cubica; // Objeto para el escenario del laberinto
 objeto crear_escena(){
 	objeto obj;
 	GLuint VAO;
-	GLuint buffer_pos, buffer_col;
+	GLuint buffer_pos, buffer_uv;
 	
 	// Creamos el laberinto con 15 filas, 15 columnas y tamaño de celda 4.0 unidades
 	maze = new Maze(15, 4.0f);
@@ -107,7 +148,9 @@ objeto crear_escena(){
 
 	// Creamos arrays para posiciones y colores de los vértices
 	GLfloat* pos_data = new GLfloat[total_vertices * 3];
-	GLfloat* color_data = new GLfloat[total_vertices * 3];
+	GLfloat* uv_data = new GLfloat[total_vertices * 2];
+	GLfloat* normal_data = new GLfloat[total_vertices * 3];
+	GLfloat* tangent_data = new GLfloat[total_vertices * 3];
 
 	// Definimos un cubo unitario centrado en el origen (0,0,0) con tamaño 1x1x1
 	GLfloat cube_vertices[36][3] = {
@@ -161,17 +204,38 @@ objeto crear_escena(){
 	};
 
 	// Colores para cada cara
-	GLfloat cube_colors[6][3] = {
-		{1.0f, 0.0f, 0.0f},  // Rojo (frontal)
-		{0.0f, 1.0f, 0.0f},  // Verde (trasera)
-		{0.0f, 0.0f, 1.0f},  // Azul (derecha)
-		{1.0f, 1.0f, 0.0f},  // Amarillo (izquierda)
-		{0.0f, 1.0f, 1.0f},  // Cian (superior/techo)
-		{1.0f, 0.0f, 1.0f}   // Magenta (inferior/suelo)
+	GLfloat face_uv[6][2] = {
+		{0.0f, 0.0f}, 
+		{1.0f, 0.0f}, 
+		{1.0f, 1.0f},  
+		{0.0f, 0.0f},  
+		{1.0f, 1.0f},  
+		{0.0f, 1.0f}   
+	};
+
+	GLfloat cube_normals[6][3] = {
+		{0.0f, 0.0f, 1.0f},
+		{0.0f, 0.0f, -1.0f},
+		{1.0f, 0.0f, 0.0f},
+		{-1.0f, 0.0f, 0.0f},
+		{0.0f, 1.0f, 0.0f},
+		{0.0f, -1.0f, 0.0f}
+	};
+
+	GLfloat cube_tangents[6][3] = {
+		{1.0f, 0.0f, 0.0f},
+		{-1.0f, 0.0f, 0.0f},
+		{0.0f, 0.0f, -1.0f},
+		{0.0f, 0.0f, 1.0f},
+		{1.0f, 0.0f, 0.0f},
+		{1.0f, 0.0f, 0.0f}
 	};
 
 	// Recorremos el mapa y creamos un cubo por cada pared
 	int vertex_index = 0;
+	int ui = 0;
+	int ni = 0;
+	int ti = 0;
 	float tile_size = maze->getTileSize(); // Tamaño de cada celda del mapa
 	float maze_center_xz = (maze->getColumns() * tile_size) / 2.0f; // Simétrico en XZ
 	for (int i = 0; i < maze->getRows(); i++){
@@ -189,14 +253,24 @@ objeto crear_escena(){
 					pos_data[v_index] = cube_vertices[k][0] * tile_size + posX;
 					pos_data[v_index + 1] = cube_vertices[k][1] * tile_size + posY;
 					pos_data[v_index + 2] = cube_vertices[k][2] * tile_size + posZ;
+					vertex_index += 3;
 
 					// Asignamos color basado en la cara
-					int face = k / 6; // cada cara 6 vértices
-					color_data[v_index] = cube_colors[face][0];
-					color_data[v_index + 1] = cube_colors[face][1];
-					color_data[v_index + 2] = cube_colors[face][2];
+					int face_vert = k % 6; // cada cara 6 vértices
+					uv_data[ui] = face_uv[face_vert][0];
+					uv_data[ui + 1] = face_uv[face_vert][1];
+					ui += 2;
 
-					vertex_index += 3;
+					int face = k / 6;
+					normal_data[ni] = cube_normals[face][0];
+					normal_data[ni + 1] = cube_normals[face][1];
+					normal_data[ni + 2] = cube_normals[face][2];
+					ni += 3;
+
+					tangent_data[ti] = cube_tangents[face][0];
+					tangent_data[ti + 1] = cube_tangents[face][1];
+					tangent_data[ti + 2] = cube_tangents[face][2];
+					ti += 3;
 				}
 			}
 		}
@@ -216,13 +290,24 @@ objeto crear_escena(){
 		pos_data[v_index] = cube_vertices[k][0] * scale_xz;
 		pos_data[v_index + 1] = cube_vertices[k][1] * scale_y;
 		pos_data[v_index + 2] = cube_vertices[k][2] * scale_xz;
-		
-		// Color del suelo: gris oscuro (0.4, 0.4, 0.4)
-		color_data[v_index] = 0.4f;
-		color_data[v_index + 1] = 0.4f;
-		color_data[v_index + 2] = 0.4f;
-		
 		vertex_index += 3;
+
+		// Color del suelo: gris oscuro (0.4, 0.4, 0.4)
+		int face_vert = k % 6;
+		uv_data[ui] = face_uv[face_vert][0];
+		uv_data[ui + 1] = face_uv[face_vert][1];
+		ui += 2;
+
+		int face = k / 6;
+		normal_data[ni] = cube_normals[face][0];
+		normal_data[ni + 1] = cube_normals[face][1];
+		normal_data[ni + 2] = cube_normals[face][2];
+		ni += 3;
+
+		tangent_data[ti] = cube_tangents[face][0];
+		tangent_data[ti + 1] = cube_tangents[face][1];
+		tangent_data[ti + 2] = cube_tangents[face][2];
+		ti += 3;
 	}
 
 	// Mandamos posiciones en un VBO
@@ -232,9 +317,21 @@ objeto crear_escena(){
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 	// Mandamos colores en otro VBO
-	glGenBuffers(1, &buffer_col); 
-	glBindBuffer(GL_ARRAY_BUFFER, buffer_col);
-	glBufferData(GL_ARRAY_BUFFER, total_vertices * 3 * sizeof(GLfloat), color_data, GL_STATIC_DRAW);
+	glGenBuffers(1, &buffer_uv); 
+	glBindBuffer(GL_ARRAY_BUFFER, buffer_uv);
+	glBufferData(GL_ARRAY_BUFFER, total_vertices * 2 * sizeof(GLfloat), uv_data, GL_STATIC_DRAW);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+	GLuint buffer_norm;
+	glGenBuffers(1, &buffer_norm); 
+	glBindBuffer(GL_ARRAY_BUFFER, buffer_norm);
+	glBufferData(GL_ARRAY_BUFFER, total_vertices * 3 * sizeof(GLfloat), normal_data, GL_STATIC_DRAW);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+	GLuint buffer_tan;
+	glGenBuffers(1, &buffer_tan); 
+	glBindBuffer(GL_ARRAY_BUFFER, buffer_tan);
+	glBufferData(GL_ARRAY_BUFFER, total_vertices * 3 * sizeof(GLfloat), tangent_data, GL_STATIC_DRAW);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 	// Creamos y enlazamos el VAO
@@ -250,7 +347,17 @@ objeto crear_escena(){
 	// Indicamos donde hallar datos de colores
 	glBindBuffer(GL_ARRAY_BUFFER, buffer_col);
 	glEnableVertexAttribArray(1);
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), 0);
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), 0);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+	glBindBuffer(GL_ARRAY_BUFFER, buffer_norm);
+	glEnableVertexAttribArray(2);
+	glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), 0);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+	glBindBuffer(GL_ARRAY_BUFFER, buffer_tan);
+	glEnableVertexAttribArray(3);
+	glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), 0);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 	// Cerramos VAO con todo listo para ser pintado
@@ -258,7 +365,9 @@ objeto crear_escena(){
 
 	// Borramos datos, ya están en la GPU
 	delete[] pos_data;
-	delete[] color_data;
+	delete[] uv_data;
+	delete[] normal_data;
+	delete[] tangent_data;
 
 	// Devolvemos objeto VAO + número de vértices en estructura obj
 	obj.VAO = VAO; 
@@ -307,11 +416,16 @@ void init_scene()
 
 	// Indicamos que programa vamos a usar 
 	glUseProgram(prog);
+	GLuint tex_brick = cargar_textura("data/brick.jpg", GL_TEXTURE0);
+	transfer_int("tex", 0);
+
+	GLuint tex_normal = cargar_textura("data/brick_normal.jpg", GL_TEXTURE1);
+	transfer_int("normalMap",1);
 }
 
 
 // Variables para la cámara
-vec3 cam_pos = vec3(0.0f, 0.0f, 0.0f); // Posición inicial de la cámara (observador)
+vec3 cam_pos = vec3(0.0f, 3.0f, 3.0f); // Posición inicial de la cámara (observador)
 vec3 cam_target = vec3(0.0f, 0.0f, 1.0f); // Dirección hacia donde mira la cámara
 vec3 cam_up = vec3(0.0f, 1.0f, 0.0f); // Vector "arriba" de la cámara
 float cam_fov = 60.0f; // Campo de visión inicial
@@ -350,6 +464,9 @@ void render_scene()
 	M = glm::mat4(1.0f);
 	
 	transfer_mat4("MVP", P * V * M);
+	transfer_mat4("M", M);
+	transfer_vec3("lightPos", cam_pos + vec3(0.0f, -1.5f, 0.0f));
+	transfer_vec3("camPos", cam_pos);
 	
 	// Dibujamos el cubo del escenario
 	glBindVertexArray(escena_cubica.VAO);             // Activamos VAO del cubo
