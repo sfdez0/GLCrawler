@@ -114,42 +114,42 @@ objeto crear_escena(void){
 		// Cara frontal (z = 1) - Rojo
 		-0.5f, -0.5f,  0.5f,   // tri 1: inf-izq
 		 0.5f, -0.5f,  0.5f,   //        inf-der
-		 0.5f,  0.5f,  0.5f,   //        sup-der
+		 0.5f,  1.0f,  0.5f,   //        sup-der
 		-0.5f, -0.5f,  0.5f,   // tri 2: inf-izq
-		 0.5f,  0.5f,  0.5f,   //        sup-der
-		-0.5f,  0.5f,  0.5f,   //        sup-izq
+		 0.5f,  1.0f,  0.5f,   //        sup-der
+		-0.5f,  1.0f,  0.5f,   //        sup-izq
 
 		// Cara trasera (z = -0.5)  - Verde
 		 0.5f, -0.5f, -0.5f,   // tri 1: inf-der
 		-0.5f, -0.5f, -0.5f,   //        inf-izq
-		-0.5f,  0.5f, -0.5f,   //        sup-izq
+		-0.5f,  1.0f, -0.5f,   //        sup-izq
 		 0.5f, -0.5f, -0.5f,   // tri 2: inf-der
-		-0.5f,  0.5f, -0.5f,   //        sup-izq
-		 0.5f,  0.5f, -0.5f,   //        sup-der
+		-0.5f,  1.0f, -0.5f,   //        sup-izq
+		 0.5f,  1.0f, -0.5f,   //        sup-der
 
 		// Cara derecha (x = 0.5) - Azul
 		 0.5f, -0.5f,  0.5f,   // tri 1: inf-der
 		 0.5f, -0.5f, -0.5f,   //        inf-izq
-		 0.5f,  0.5f, -0.5f,   //        sup-izq
+		 0.5f,  1.0f, -0.5f,   //        sup-izq
 		 0.5f, -0.5f,  0.5f,   // tri 2: inf-der
-		 0.5f,  0.5f, -0.5f,   //        sup-izq
-		 0.5f,  0.5f,  0.5f,   //        sup-der
+		 0.5f,  1.0f, -0.5f,   //        sup-izq
+		 0.5f,  1.0f,  0.5f,   //        sup-der
 
 		// Cara izquierda (x = -0.5) - Amarillo
 		-0.5f, -0.5f, -0.5f,   // tri 1: inf-der
 		-0.5f, -0.5f,  0.5f,   //        inf-izq
-		-0.5f,  0.5f,  0.5f,   //        sup-izq
+		-0.5f,  1.0f,  0.5f,   //        sup-izq
 		-0.5f, -0.5f, -0.5f,   // tri 2: inf-der
-		-0.5f,  0.5f,  0.5f,   //        sup-izq
-		-0.5f,  0.5f, -0.5f,   //        sup-der
+		-0.5f,  1.0f,  0.5f,   //        sup-izq
+		-0.5f,  1.0f, -0.5f,   //        sup-der
 
 		// Cara superior (y = 0.5) - Cian
-		-0.5f,  0.5f,  0.5f,   // tri 1: izq-atras
-		 0.5f,  0.5f,  0.5f,   //        der-atras
-		 0.5f,  0.5f, -0.5f,   //        der-frente
-		-0.5f,  0.5f,  0.5f,   // tri 2: izq-atras
-		 0.5f,  0.5f, -0.5f,   //        der-frente
-		-0.5f,  0.5f, -0.5f,   //        izq-frente
+		-0.5f,  1.0f,  0.5f,   // tri 1: izq-atras
+		 0.5f,  1.0f,  0.5f,   //        der-atras
+		 0.5f,  1.0f, -0.5f,   //        der-frente
+		-0.5f,  1.0f,  0.5f,   // tri 2: izq-atras
+		 0.5f,  1.0f, -0.5f,   //        der-frente
+		-0.5f,  1.0f, -0.5f,   //        izq-frente
 
 		// Cara inferior (y = -0.5) - Magenta
 		-0.5f, -0.5f, -0.5f,   // tri 1: izq-frente
