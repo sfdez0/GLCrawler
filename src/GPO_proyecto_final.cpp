@@ -61,7 +61,7 @@ objeto escena_cubica; // Objeto para el escenario del laberinto
  * Función para crear el escenario del laberinto
  * Genera cubos para cada pared del mapa 2D
  */
-objeto crear_escena(void){
+objeto crear_escena(){
 	objeto obj;
 	GLuint VAO;
 	GLuint buffer_pos, buffer_col;
@@ -266,9 +266,12 @@ objeto crear_escena(void){
 	return obj;
 }
 
-// Preparacion de los datos de los objetos a dibujar, envialarlos a la GPU
-// Compilacion programas a ejecutar en la tarjeta grafica:  vertex shader, fragment shaders
-// Opciones generales de render de OpenGL
+/**
+ * Función para inicializar la escena
+ * Prepara los datos de los objetos a dibujar, los envía a la GPU
+ * Compila los programas a ejecutar en la tarjeta gráfica: vertex shader, fragment shader
+ * Configura opciones generales de render de OpenGL
+ */
 void init_scene()
 {
 	int width, height;
@@ -314,8 +317,19 @@ vec3 cam_up = vec3(0.0f, 1.0f, 0.0f); // Vector "arriba" de la cámara
 float cam_fov = 60.0f; // Campo de visión inicial
 float cam_speed = 0.2f; // Velocidad de movimiento de la cámara
 float aspect_ratio = 4.0f / 3.0f; // Aspect ratio inicial (proporción de la ventana)
+float cam_radius = 0.5f; // Radio de colisión de la cámara (como esfera)
 
-// Actualizar escena: cambiar posicion objetos, nuevos objetros, posicion camara, luces, etc.
+// Variables para control con ratón
+double last_mouse_x = 0.0; // Última posición X del ratón
+double last_mouse_y = 0.0; // Última posición Y del ratón
+float mouse_sensitivity = 0.1f; // Sensibilidad
+float cam_yaw = 0.0f; // Rotación horizontal (grados)
+float cam_pitch = 0.0f; // Rotación vertical (grados)
+
+/**
+ * Función para renderizar la escena en cada frame
+ * Limpia buffers, actualiza matrices de tranformación, posición de cámara, luces...
+ */
 void render_scene()
 {
 	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);  // Especifica color para el fondo oscuro (RGB+alfa)
@@ -348,13 +362,19 @@ void render_scene()
 ////////////     PROGRAMA PRINCIPAL
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Programa principal
+/**
+ * Programa principal
+ */
 int main(int argc, char* argv[])
 {
 	init_GLFW();            // Inicializa lib GLFW
 	window = Init_Window(prac);  // Crea ventana usando GLFW, asociada a un contexto OpenGL	X.Y
 	load_Opengl();         // Carga funciones de OpenGL, comprueba versión.
 	init_scene();          // Prepara escena
+	asigna_funciones_callback(window); // Registramos callbacks de entrada
+	
+	// Ocultamos y capturamos el cursor en la ventana para control de cámara con ratón
+	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 	
 	// Hacemos que se sincronice con la tasa de refresco del monitor
 	glfwSwapInterval(1);
@@ -371,7 +391,9 @@ int main(int argc, char* argv[])
 	exit(EXIT_SUCCESS);
 }
 
-// Función para mostrar información en el título de la ventana
+/**
+ * Función para mostrar información en el título de la ventana
+ */
 void show_info()
 {
 	static int fps = 0;
@@ -407,7 +429,11 @@ bool can_move(vec3& new_pos) {
 ////////////     ASIGNACIÓN FUNCIONES CALLBACK
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Callback de cambio tamaño de ventana
+/**
+ * Función que procesa el cambio de tamaño en la ventana
+ * `window`: puntero a la ventana GLFW
+ * `width`, `height`: nuevo ancho y alto de la ventana
+ */
 void ResizeCallback(GLFWwindow* window, int width, int height)
 {
 	glfwGetFramebufferSize(window, &width, &height); 
@@ -422,11 +448,16 @@ void ResizeCallback(GLFWwindow* window, int width, int height)
 	cam_fov = 60.0f * (4.0f / 3.0f) / aspect_ratio;
 }
 
-// Callback de pulsacion de tecla
+/**
+ * Función que procesa las pulsaciones de teclas para controlar el movimiento de la cámara
+ * `window`: puntero a la ventana GLFW
+ * `key`: código de la tecla pulsada
+ * `code`: código
+ * `action`: tipo de acción
+ * `mode`: estado de las teclas modificadoras (Shift, Ctrl, Alt)
+ */
 static void KeyCallback(GLFWwindow* window, int key, int code, int action, int mode)
 {
-	fprintf(stdout, "Key %d Code %d Act %d Mode %d Pos (%f, %f, %f)\n", key, code, action, mode, cam_pos.x, cam_pos.y, cam_pos.z);
-	
 	if (key == GLFW_KEY_ESCAPE) {
 		glfwSetWindowShouldClose(window, true);
 	}
@@ -476,28 +507,48 @@ static void KeyCallback(GLFWwindow* window, int key, int code, int action, int m
 			cam_pos = new_pos;
 		}
 	}
-	// Rotación hacia la izquierda (Z)
-	else if (key == GLFW_KEY_Z){
-		// Rotamos el vector front alrededor del eje Y (up) para girar la cámara a la izquierda
-		float angle = glm::radians(-5.0f); // 5 grados antiohorario
-		float cos_a = cos(angle);
-		float sin_a = sin(angle);
-		cam_target.x = cam_target.x * cos_a - cam_target.z * sin_a;
-		cam_target.z = cam_target.x * sin_a + cam_target.z * cos_a;
-	}
-	// Rotación hacia la derecha (X)
-	else if (key == GLFW_KEY_X){
-		// Rotamos el vector front alrededor del eje Y (up) para girar la cámara a la derecha
-		float angle = glm::radians(5.0f); // 5 grados
-		float cos_a = cos(angle);
-		float sin_a = sin(angle);
-		cam_target.x = cam_target.x * cos_a - cam_target.z * sin_a;
-		cam_target.z = cam_target.x * sin_a + cam_target.z * cos_a;
-	}
 }
 
+/**
+ * Función que procesa el movimiento del ratón para controlar la orientación de la cámara
+ * `window`: puntero a la ventana GLFW
+ * `xpos`, `ypos`: posición actual del cursor en la ventana
+ */
+static void MouseCallback(GLFWwindow* window, double xpos, double ypos)
+{
+	// Calculamos el delta del movimiento actual respecto a la posición anterior y aplicamos sensibilidad
+	double delta_x = (xpos - last_mouse_x) * mouse_sensitivity;
+	double delta_y = (ypos - last_mouse_y) * mouse_sensitivity;
+
+	// Actualizamos la última posición
+	last_mouse_x = xpos;
+	last_mouse_y = ypos;
+	
+	// Actualizamos yaw y pitch de la cámara
+	cam_yaw += delta_x; // Yaw aumenta hacia derecha, disminuye hacia izquierda
+	cam_pitch -= delta_y; // Y aumenta hacia abajo en pantalla
+
+	// Limitamos pitch para evitar vueltas completas al llegar al límite superior o inferior
+	if (cam_pitch > 89.0f)
+		cam_pitch = 89.0f;
+	else if (cam_pitch < -89.0f)
+		cam_pitch = -89.0f;
+	
+	// Calculamos el vector de dirección en coordenadas cartesianas 3D
+	vec3 direction;
+	direction.x = cos(glm::radians(cam_yaw)) * cos(glm::radians(cam_pitch));
+	direction.y = sin(glm::radians(cam_pitch));
+	direction.z = sin(glm::radians(cam_yaw)) * cos(glm::radians(cam_pitch));
+	
+	cam_target = glm::normalize(direction);
+}
+
+/**
+ * Función que asigna las funciones callback para los eventos de ventana, teclado y ratón
+ */
 void asigna_funciones_callback(GLFWwindow* window)
 {
 	glfwSetWindowSizeCallback(window, ResizeCallback);
 	glfwSetKeyCallback(window, KeyCallback);
+	glfwSetCursorPosCallback(window, MouseCallback);
 }
