@@ -41,6 +41,27 @@ void Maze::setMap(const int* datos, int r) {
             map[i][j] = datos[i * columns + j];
         }
     }
+    
+    // Generamos las bounding boxes para todos los muros
+    wallBoundingBoxes.clear();
+    float maze_center_xz = (rows * tile_size) / 2.0f;
+    
+    for (int i = 0; i < rows; i++) {
+        for (int j = 0; j < columns; j++) {
+            if (map[i][j] == 1) {
+                // Calculamos las coordenadas en el espacio 3D
+                float posX = j * tile_size - maze_center_xz;
+                float posZ = i * tile_size - maze_center_xz;
+                
+                // Creamos la bounding box del muro (eje Y no es necesario)
+                BoundingBox bbox;
+                bbox.min = vec3(posX - tile_size / 2.0f, 0.0f, posZ - tile_size / 2.0f);
+                bbox.max = vec3(posX + tile_size / 2.0f, 0.0f, posZ + tile_size / 2.0f);
+                
+                wallBoundingBoxes.push_back(bbox);
+            }
+        }
+    }
 }
 
 /**
@@ -111,24 +132,27 @@ std::vector<vec3> Maze::getWallPositions() {
 }
 
 /**
- * Función para verificar si una posición 3D es transitable (no es un muro)
- * `x` Coordenada X en el espacio 3D
- * `z` Coordenada Z en el espacio 3D
- * Devuelve true si la posición es transitable, false si es un muro o fuera de límites
+ * Función para verificar colisión AABB entre la cámara (como caja) y los muros
+ * `position` Posición central de la cámara
+ * `radius` Radio/mitad del ancho de la caja de colisión de la cámara
+ * Devuelve true si hay colisión, false si está libre
  */
-bool Maze::isWalkable(vec3 position) {
-    float x = position.x;
-    float z = position.z;
-    float y = position.y;
-
-    // Convertimos las coordenadas 3D a índices de matriz
-    int col = (int)((x + (columns * tile_size) / 2.0f) / tile_size);
-    int row = (int)((z + (rows * tile_size) / 2.0f) / tile_size);
+bool Maze::checkCollisionWithBoundingBoxes(vec3 position, float radius) {
+    // AABB de la cámara (caja rectangular centrada en position)
+    float cam_min_x = position.x - radius;
+    float cam_max_x = position.x + radius;
+    float cam_min_z = position.z - radius;
+    float cam_max_z = position.z + radius;
     
-    // Verificamos si los indices están dentro de los límites del mapa
-    if (row >= 0 && row < rows && col >= 0 && col < columns) {
-        // Es transitable si el valor es 0 (vacío)
-        return map[row][col] == 0;
+    // Verificamos colisión con todas las bounding boxes de los muros
+    for (const BoundingBox& wall : wallBoundingBoxes) {
+        // Comprobamos si las dos AABBs se solapan en XZ
+        if (!(cam_max_x < wall.min.x || cam_min_x > wall.max.x ||
+              cam_max_z < wall.min.z || cam_min_z > wall.max.z)) {
+            return true; // Hay colisión
+        }
     }
-    return false;
+    
+    return false; // No hay colisión
 }
+

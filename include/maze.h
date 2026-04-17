@@ -6,6 +6,12 @@
 
 using namespace glm;
 
+// Estructura para representar una Bounding Box
+struct BoundingBox {
+    vec3 min;
+    vec3 max;
+};
+
 // Estructura para representar el mapa
 class Maze {
 private:
@@ -13,6 +19,7 @@ private:
     int rows;                          // Número de filas del mapa
     int columns;                       // Número de columnas del mapa
     float tile_size;                   // Tamaño de cada celda en unidades 3D
+    std::vector<BoundingBox> wallBoundingBoxes; // Vector con bounding boxes de todos los muros
 
 public:
     Maze(int r, float size = 2.0f);
@@ -27,7 +34,7 @@ public:
     float getTileSize();
     std::vector<vec3> getWallPositions();
 
-    bool isWalkable(vec3 position);
+    bool checkCollisionWithBoundingBoxes(vec3 position, float radius);
 };
 
 #endif // MAZE_H

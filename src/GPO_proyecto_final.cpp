@@ -418,10 +418,12 @@ void show_info()
 ////////////     FUNCIONES AUXILIARES 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Función para verificar si hay colisiones entre una esfera y una bounding box
+/**
+ * Función para verificar si la cámara puede moverse a una nueva posición sin colisionar con las paredes del laberinto
+ */
 bool can_move(vec3& new_pos) {
-	return true; // Por ahora siempre permitimos el movimiento, sin colisiones
-	// return maze->isWalkable(new_pos);
+	// Comprobamos si la nueva posición colisionaría con alguna bounding box
+	return !maze->checkCollisionWithBoundingBoxes(new_pos, cam_radius);
 }
 
 
