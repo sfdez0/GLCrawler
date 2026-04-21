@@ -429,7 +429,8 @@ vec3 cam_pos = vec3(0.0f, 3.0f, 3.0f); // Posición inicial de la cámara (obser
 vec3 cam_target = vec3(0.0f, 0.0f, 1.0f); // Dirección hacia donde mira la cámara
 vec3 cam_up = vec3(0.0f, 1.0f, 0.0f); // Vector "arriba" de la cámara
 float cam_fov = 60.0f; // Campo de visión inicial
-float cam_speed = 0.2f; // Velocidad de movimiento de la cámara
+float cam_speed = 3.0f; // Velocidad de movimiento de la cámara
+float cam_run_speed = 4.5f; // Velocidad en carrera (Shift)
 float aspect_ratio = 4.0f / 3.0f; // Aspect ratio inicial (proporción de la ventana)
 float cam_radius = 0.5f; // Radio de colisión de la cámara (como esfera)
 
@@ -440,6 +441,13 @@ float mouse_sensitivity = 0.1f; // Sensibilidad
 float cam_yaw = 0.0f; // Rotación horizontal (grados)
 float cam_pitch = 0.0f; // Rotación vertical (grados)
 
+// Variables para control de teclado
+bool keys_pressed[7] = {false, false, false, false, false, false, false}; // W, S, D, A, Q, E, Shift
+double last_frame_time = 0.0; // Tiempo del último frame
+
+// Declaración adelantada de función
+bool can_move(vec3& new_pos);
+
 /**
  * Función para renderizar la escena en cada frame
  * Limpia buffers, actualiza matrices de tranformación, posición de cámara, luces...
@@ -449,7 +457,63 @@ void render_scene()
 	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);  // Especifica color para el fondo oscuro (RGB+alfa)
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);  // Limpia buffers de color y profundidad
 
-	float t = (float)glfwGetTime();  // Contador de tiempo en segundos 
+	// Calculamos delta time para movimiento suave (e independiente de FPS)
+	double current_time = glfwGetTime();
+	double delta_time = current_time - last_frame_time;
+	last_frame_time = current_time;
+
+	// Establecemos la velocidad según si se está presionando Shift para correr o no
+	float speed = keys_pressed[6] ? cam_run_speed : cam_speed;
+
+	// Calculamos la distancia a mover en este frame basada en el delta y la velocidad de la cámara
+	float movement_distance = speed * (float)delta_time;
+
+	// W: Adelante
+	if (keys_pressed[0]) {
+		vec3 move = glm::normalize(vec3(cam_target.x, 0.0f, cam_target.z));
+		vec3 new_pos = cam_pos + move * movement_distance;
+		if (can_move(new_pos)) {
+			cam_pos = new_pos;
+		}
+	}
+	// S: Atrás
+	if (keys_pressed[1]) {
+		vec3 move = glm::normalize(vec3(cam_target.x, 0.0f, cam_target.z));
+		vec3 new_pos = cam_pos - move * movement_distance;
+		if (can_move(new_pos)) {
+			cam_pos = new_pos;
+		}
+	}
+	// D: Derecha
+	if (keys_pressed[2]) {
+		vec3 right = glm::normalize(glm::cross(cam_target, cam_up));
+		vec3 new_pos = cam_pos + right * movement_distance;
+		if (can_move(new_pos)) {
+			cam_pos = new_pos;
+		}
+	}
+	// A: Izquierda
+	if (keys_pressed[3]) {
+		vec3 right = glm::normalize(glm::cross(cam_target, cam_up));
+		vec3 new_pos = cam_pos - right * movement_distance;
+		if (can_move(new_pos)) {
+			cam_pos = new_pos;
+		}
+	}
+	// Q: Arriba
+	if (keys_pressed[4]) {
+		vec3 new_pos = cam_pos + cam_up * movement_distance;
+		if (can_move(new_pos)) {
+			cam_pos = new_pos;
+		}
+	}
+	// E: Abajo
+	if (keys_pressed[5]) {
+		vec3 new_pos = cam_pos - cam_up * movement_distance;
+		if (can_move(new_pos)) {
+			cam_pos = new_pos;
+		}
+	}
 
 	///////// Actualizacion matrices M, V, P  /////////	
 	mat4 P, V, M, T, R, S;
@@ -580,51 +644,34 @@ static void KeyCallback(GLFWwindow* window, int key, int code, int action, int m
 	if (key == GLFW_KEY_ESCAPE) {
 		glfwSetWindowShouldClose(window, true);
 	}
-	// Movimiento hacia adelante (W)
-	else if (key == GLFW_KEY_W){
-		vec3 move = glm::normalize(vec3(cam_target.x, 0.0f, cam_target.z)) * cam_speed;
-		vec3 new_pos = cam_pos + move;
-		if (can_move(new_pos)) {
-			cam_pos = new_pos;
-		}
-	}
-	// Movimiento hacia atrás (S)
-	else if (key == GLFW_KEY_S){
-		vec3 move = glm::normalize(vec3(cam_target.x, 0.0f, cam_target.z)) * cam_speed;
-		vec3 new_pos = cam_pos - move;
-		if (can_move(new_pos)) {
-			cam_pos = new_pos;
-		}
-	}
-	// Movimiento hacia la derecha (D)
-	else if (key == GLFW_KEY_D){
-		vec3 right = glm::normalize(glm::cross(cam_target, cam_up));
-		vec3 new_pos = cam_pos + right * cam_speed;
-		if (can_move(new_pos)) {
-			cam_pos = new_pos;
-		}
-	}
-	// Movimiento hacia la izquierda (A)
-	else if (key == GLFW_KEY_A){
-		vec3 right = glm::normalize(glm::cross(cam_target, cam_up));
-		vec3 new_pos = cam_pos - right * cam_speed;
-		if (can_move(new_pos)) {
-			cam_pos = new_pos;
-		}
-	}
-	// Movimiento hacia arriba (Q)
-	else if (key == GLFW_KEY_Q){
-		vec3 new_pos = cam_pos + cam_up * cam_speed;
-		if (can_move(new_pos)) {
-			cam_pos = new_pos;
-		}
-	}
-	// Movimiento hacia abajo (E)
-	else if (key == GLFW_KEY_E){
-		vec3 new_pos = cam_pos - cam_up * cam_speed;
-		if (can_move(new_pos)) {
-			cam_pos = new_pos;
-		}
+
+	// Actualizamos el estado de las teclas de movimiento
+	bool is_pressed = (action == GLFW_PRESS || action == GLFW_REPEAT);
+	
+	switch (key) {
+		case GLFW_KEY_W:
+			keys_pressed[0] = is_pressed; // W: Adelante
+			break;
+		case GLFW_KEY_S:
+			keys_pressed[1] = is_pressed; // S: Atrás
+			break;
+		case GLFW_KEY_D:
+			keys_pressed[2] = is_pressed; // D: Derecha
+			break;
+		case GLFW_KEY_A:
+			keys_pressed[3] = is_pressed; // A: Izquierda
+			break;
+		case GLFW_KEY_Q:
+			keys_pressed[4] = is_pressed; // Q: Arriba
+			break;
+		case GLFW_KEY_E:
+			keys_pressed[5] = is_pressed; // E: Abajo
+			break;
+		case GLFW_KEY_LEFT_SHIFT:
+			keys_pressed[6] = is_pressed; // Shift: Correr
+			break;
+		default:
+			break;
 	}
 }
 
