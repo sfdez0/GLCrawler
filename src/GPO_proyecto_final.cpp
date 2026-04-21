@@ -7,6 +7,9 @@
 #include <GpO.h>
 #include <vector>
 #include <maze.h>
+#include <fstream>
+#include <sstream>
+#include <iostream>
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////     VARIABLES GLOBALES 
@@ -19,6 +22,28 @@ const char* prac = "OpenGL (GpO)";
 
 // Puntero a la clase Maze que representa el mapa del laberinto
 Maze* maze; 
+
+/**
+ * Estructura para almacenar datos de antorchas
+ * `x:` posición horizontal (columna)
+ * `y:` posición vertical (fila)
+ * `direction:` dirección de la antorcha (u=arriba, d=abajo, r=derecha, l=izquierda)
+ */
+struct Torch {
+	int x;
+	int y;
+	char direction;
+};
+
+/**
+ * Estructura para almacenar datos de enemigos
+ * `x:` posición horizontal (columna)
+ * `y:` posición vertical (fila)
+ */
+struct Enemy {
+	int x;
+	int y;
+};
 
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -99,6 +124,134 @@ GLuint prog;
 objeto escena_cubica; // Objeto para el escenario del laberinto
 
 /**
+ * Función para cargar el mapa del laberinto desde un archivo .txt
+ * El archivo debe contener valores separados por comas (1 = muro, 0 = vacío)
+ * Las filas deben estar en líneas separadas
+ */
+int* load_maze_from_file(const char* filename, int rows, int cols) {
+	std::ifstream file(filename);
+	if (!file.is_open()) {
+		printf("CARGA: Error - No se pudo abrir el archivo: %s\n", filename);
+		return nullptr;
+	}
+
+	// Creamos un array dinámico para almacenar el mapa
+	int* map = new int[rows * cols];
+
+	int index = 0;
+	std::string line;
+
+	// Iteramos por línea por línea
+	while (std::getline(file, line) && index < rows * cols) {
+		std::istringstream iss(line);
+		int value = 0;
+		char comma;
+		while (index < rows * cols && value != -1) {
+			// Intentamos leer un valor entero
+			if (iss >> value) {
+				// Insertamos el valor en el array del mapa
+				map[index++] = value;
+				// Intentamos leer la coma
+				if (!(iss >> comma) || comma != ',') {
+					break; // Fin de línea o no hay coma
+				}
+			} else {
+				break; // No hay más valores en esta línea
+			}
+		}
+	}
+
+	// Cerramos archivo y verificamos si se leyeron todos los valores esperados
+	file.close();
+
+	if (index != rows * cols) {
+		printf("CARGA: Advertencia - El número de valores leídos (%d) no coincide con el tamaño esperado del mapa (%d)\n", index, rows * cols);
+	}
+
+	return map;
+}
+
+/**
+ * Función para cargar datos de antorchas desde un archivo .txt
+ * El formato esperado es: a, int, int, letra (donde letra es u, d, r, l)
+ */
+std::vector<Torch> load_entities_from_file(const char* filename, int maze_rows) {
+	std::vector<Torch> torches;
+	std::ifstream file(filename);
+	
+	if (!file.is_open()) {
+		printf("CARGA: Error - No se pudo abrir el archivo: %s\n", filename);
+		return torches;
+	}
+
+	int index = -1;
+	std::string line;
+
+	// Iteramos por el archivo línea por línea
+	while (std::getline(file, line)) {
+		index++;
+
+		// Saltamos las lineas del mapa del laberinto
+		if (index < maze_rows){ 
+			continue;
+		}
+
+		// Eliminamos espacios en blanco al inicio y final
+		size_t start = line.find_first_not_of(" \t\r\n");
+		
+		// Saltamos líneas vacías
+		if (start == std::string::npos) continue;  
+		
+		// Parseamos: a, int, int, char
+		std::istringstream iss(line);
+		char type, comma;
+		int x, y;
+		char direction;
+		
+		// Leemos según el formato esperado
+		if (iss >> type && iss >> comma && comma == ',') {
+			if (iss >> x && iss >> comma && comma == ',') {
+				if (iss >> y) {
+					// Diferenciamos según el tipo de entidad
+					switch (type){
+						case 'a':
+							// Antorcha
+							if (iss >> comma && comma == ',' && iss >> direction) {
+								// Validamos la dirección
+								if (direction == 'u' || direction == 'd' || direction == 'r' || direction == 'l') {
+									// Creamos el objeto y lo agregamos a la lista
+									Torch torch;
+									torch.x = x;
+									torch.y = y;
+									torch.direction = direction;
+									torches.push_back(torch);
+									printf("CARGA: Antorcha: x=%d, y=%d, dir=%c\n", x, y, direction);
+								} else {
+									printf("CARGA: Advertencia - Direccion invalida '%c' en linea: %s\n", direction, line.c_str());
+								}
+							}
+							break;
+						case 'e':
+							Enemy enemy;
+							enemy.x = x;
+							enemy.y = y;
+							printf("CARGA: Enemigo: x=%d, y=%d\n", x, y);
+							break;
+						default:
+							printf("CARGA: Advertencia - Tipo desconocido '%c' en linea: %s\n", type, line.c_str());
+							break;
+					}
+				}
+			}
+		}
+	}
+	
+	file.close();
+	printf("CARGA: Antorchas cargadas: %zu\n", torches.size());
+	return torches;
+}
+
+/**
  * Función para crear el escenario del laberinto
  * Genera cubos para cada pared del mapa 2D
  */
@@ -108,29 +261,22 @@ objeto crear_escena(){
 	GLuint buffer_pos, buffer_uv;
 	
 	// Creamos el laberinto con 15 filas, 15 columnas y tamaño de celda 4.0 unidades
-	maze = new Maze(15, 4.0f);
+	int rows = 15, cols = 15;
+	maze = new Maze(rows, 4.0f);
 
-	// (1 = muro, 0 = vacío)
-	int map[] = {
-		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-        1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 1,
-        1, 0, 1, 0, 1, 0, 1, 1, 1, 1, 1, 0, 1, 0, 1,
-        1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1,
-        1, 0, 1, 1, 1, 1, 0, 0, 0, 1, 0, 1, 1, 0, 1,
-        1, 0, 0, 0, 0, 1, 1, 1, 0, 1, 0, 0, 0, 0, 1,
-        1, 1, 1, 0, 1, 1, 0, 0, 0, 1, 0, 1, 1, 0, 1,
-        1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1,
-        1, 1, 0, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 1,
-        1, 0, 0, 1, 0, 1, 1, 0, 1, 1, 0, 1, 0, 0, 1,
-		1, 0, 1, 1, 0, 0, 1, 0, 1, 0, 0, 0, 1, 1, 1,
-		1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 0, 0, 1,
-		1, 0, 1, 0, 1, 0, 0, 0, 1, 0, 1, 1, 1, 0, 1, 
-		1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1,
-		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
-	};
+	// Cargamos el mapa desde el archivo .txt (1 = muro, 0 = vacío)
+	int* map = load_maze_from_file("bin/data/maze_map.txt", rows, cols);
+	if (map == nullptr) {
+		printf("CARGA: Error - No se pudo cargar el mapa del laberinto\n");
+		return obj;
+	}
+
+	// Cargamos los datos de antorchas
+	// TODO: diferenciar entre antorchas y otras entidades
+	std::vector<Torch> torches = load_entities_from_file("bin/data/maze_map.txt", rows);
 
 	// Cargamos el mapa en la clase Maze
-	maze->setMap(map, 15);
+	maze->setMap(map, rows);
 
 	// Contamos cuantos cubos necesitamos
 	int wall_count = 0;
@@ -368,6 +514,7 @@ objeto crear_escena(){
 	delete[] uv_data;
 	delete[] normal_data;
 	delete[] tangent_data;
+	delete[] map;
 
 	// Devolvemos objeto VAO + número de vértices en estructura obj
 	obj.VAO = VAO; 
