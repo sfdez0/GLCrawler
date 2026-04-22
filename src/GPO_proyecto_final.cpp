@@ -36,6 +36,16 @@ struct Torch {
 };
 
 /**
+ * Estructura para almacenar datos de llaves
+ * `x:` posición horizontal (columna)
+ * `y:` posición vertical (fila)
+ */
+struct Keys {
+	int x;
+	int y;
+};
+
+/**
  * Estructura para almacenar datos de enemigos
  * `x:` posición horizontal (columna)
  * `y:` posición vertical (fila)
@@ -44,6 +54,29 @@ struct Enemy {
 	int x;
 	int y;
 };
+
+/**
+ * Estructura para almacenar datos de la salida del laberinto
+ * `x:` posición horizontal (columna)
+ * `y:` posición vertical (fila)
+ */
+struct Exit {
+	int x;
+	int y;
+};
+
+/**
+ * Estructura para almacenar todas las entidades del juego (antorchas, llaves, enemigo, salida)
+ */
+struct Entities {
+	std::vector<Torch> torches;
+	std::vector<Keys> keys;
+	Enemy enemy = {-1, -1};
+	Exit exit = {-1, -1};
+};
+
+// Estructura para almacenar las entidades del juego (antorchas, llaves, enemigo, salida)
+Entities entities;
 
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -175,13 +208,13 @@ int* load_maze_from_file(const char* filename, int rows, int cols) {
  * Función para cargar datos de antorchas desde un archivo .txt
  * El formato esperado es: a, int, int, letra (donde letra es u, d, r, l)
  */
-std::vector<Torch> load_entities_from_file(const char* filename, int maze_rows) {
-	std::vector<Torch> torches;
+Entities load_entities_from_file(const char* filename, int maze_rows) {
+	Entities ent;
 	std::ifstream file(filename);
 	
 	if (!file.is_open()) {
 		printf("CARGA: Error - No se pudo abrir el archivo: %s\n", filename);
-		return torches;
+		return ent;
 	}
 
 	int index = -1;
@@ -224,18 +257,34 @@ std::vector<Torch> load_entities_from_file(const char* filename, int maze_rows) 
 									torch.x = x;
 									torch.y = y;
 									torch.direction = direction;
-									torches.push_back(torch);
+									ent.torches.push_back(torch);
 									printf("CARGA: Antorcha: x=%d, y=%d, dir=%c\n", x, y, direction);
 								} else {
 									printf("CARGA: Advertencia - Direccion invalida '%c' en linea: %s\n", direction, line.c_str());
 								}
 							}
 							break;
+						case 'k':
+							// Llave
+							Keys key;
+							key.x = x;
+							key.y = y;
+							ent.keys.push_back(key);
+							printf("CARGA: Llave: x=%d, y=%d\n", x, y);
+							break;
 						case 'e':
 							Enemy enemy;
 							enemy.x = x;
 							enemy.y = y;
+							ent.enemy = enemy;
 							printf("CARGA: Enemigo: x=%d, y=%d\n", x, y);
+							break;
+						case 'x':
+							Exit exit;
+							exit.x = x;
+							exit.y = y;
+							ent.exit = exit;
+							printf("CARGA: Salida: x=%d, y=%d\n", x, y);
 							break;
 						default:
 							printf("CARGA: Advertencia - Tipo desconocido '%c' en linea: %s\n", type, line.c_str());
@@ -247,8 +296,8 @@ std::vector<Torch> load_entities_from_file(const char* filename, int maze_rows) 
 	}
 	
 	file.close();
-	printf("CARGA: Antorchas cargadas: %zu\n", torches.size());
-	return torches;
+	printf("CARGA: Antorchas: %zu - Llaves: %zu - Enemigo: %d - Salida: %d\n", ent.torches.size(), ent.keys.size(), ent.enemy.x != -1, ent.exit.x != -1);
+	return ent;
 }
 
 /**
@@ -272,8 +321,7 @@ objeto crear_escena(){
 	}
 
 	// Cargamos los datos de antorchas
-	// TODO: diferenciar entre antorchas y otras entidades
-	std::vector<Torch> torches = load_entities_from_file("bin/data/maze_map.txt", rows);
+	entities = load_entities_from_file("bin/data/maze_map.txt", rows);
 
 	// Cargamos el mapa en la clase Maze
 	maze->setMap(map, rows);
