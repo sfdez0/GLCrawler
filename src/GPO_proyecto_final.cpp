@@ -623,7 +623,7 @@ void init_scene()
 vec3 cam_pos = vec3(0.0f, 3.0f, 3.0f); // Posición inicial de la cámara (observador)
 vec3 cam_target = vec3(0.0f, 0.0f, 1.0f); // Dirección hacia donde mira la cámara
 vec3 cam_up = vec3(0.0f, 1.0f, 0.0f); // Vector "arriba" de la cámara
-float cam_fov = 60.0f; // Campo de visión inicial
+float cam_fov = 62.0f; // Campo de visión inicial
 float cam_speed = 3.0f; // Velocidad de movimiento de la cámara
 float cam_run_speed = 4.5f; // Velocidad en carrera (Shift)
 float aspect_ratio = 4.0f / 3.0f; // Aspect ratio inicial (proporción de la ventana)
@@ -832,9 +832,6 @@ void ResizeCallback(GLFWwindow* window, int width, int height)
 
 	// Actualizamos aspect ratio para la matriz de proyeccion
 	aspect_ratio = (float)ANCHO / (float)ALTO; 
-
-	// Actualizamos fov proporcionalmente al cambio de aspect ratio
-	cam_fov = 60.0f * (4.0f / 3.0f) / aspect_ratio;
 }
 
 /**
