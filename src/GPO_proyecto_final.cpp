@@ -649,8 +649,13 @@ bool can_move(vec3& new_pos);
  */
 void render_scene()
 {
-	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);  // Especifica color para el fondo oscuro (RGB+alfa)
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);  // Limpia buffers de color y profundidad
+	// Evitamos procesar si la ventana está minimizada
+	if (ANCHO == 0 || ALTO == 0) {
+		return;
+	}
+	
+	glClearColor(0.0f, 0.0f, 0.0f, 0.0f); // Especifica color para el fondo oscuro (RGB+alfa)
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // Limpia buffers de color y profundidad
 
 	// Calculamos delta time para movimiento suave (e independiente de FPS)
 	double current_time = glfwGetTime();
@@ -814,7 +819,13 @@ bool can_move(vec3& new_pos) {
  */
 void ResizeCallback(GLFWwindow* window, int width, int height)
 {
-	glfwGetFramebufferSize(window, &width, &height); 
+	glfwGetFramebufferSize(window, &width, &height);
+	
+	// Evitamos procesar si la ventana está minimizada (tamaño 0)
+	if (width == 0 || height == 0) {
+		return;
+	}
+	
 	glViewport(0, 0, width, height);
 	ALTO = height;	
 	ANCHO = width;
