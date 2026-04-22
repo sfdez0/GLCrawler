@@ -10,6 +10,9 @@
 #include <fstream>
 #include <sstream>
 #include <iostream>
+#include <imgui.h>
+#include <backends/imgui_impl_glfw.h>
+#include <backends/imgui_impl_opengl3.h>
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////     VARIABLES GLOBALES 
@@ -22,6 +25,11 @@ const char* prac = "OpenGL (GpO)";
 
 // Puntero a la clase Maze que representa el mapa del laberinto
 Maze* maze; 
+
+// Variables de estado del jugador
+int player_health = 100;
+int player_mana = 50;
+int player_keys = 0;
 
 /**
  * Estructura para almacenar datos de antorchas
@@ -640,6 +648,126 @@ float cam_pitch = 0.0f; // Rotación vertical (grados)
 bool keys_pressed[7] = {false, false, false, false, false, false, false}; // W, S, D, A, Q, E, Shift
 double last_frame_time = 0.0; // Tiempo del último frame
 
+// Variables de ImGui
+bool show_stats = true;
+bool show_settings = false;
+
+/**
+ * Función para inicializar ImGui
+ */
+void init_imgui() {
+	// Configuración básica de ImGui
+	IMGUI_CHECKVERSION();
+
+	// Creamos el contexto
+	ImGui::CreateContext();
+	ImGuiIO& io = ImGui::GetIO();
+
+	// Estilo de color oscuro
+	ImGui::StyleColorsDark();
+
+	// Configuramos ImGui para que use GLFW y OpenGL3
+	ImGui_ImplGlfw_InitForOpenGL(window, true);
+	ImGui_ImplOpenGL3_Init("#version 330 core");
+}
+
+/**
+ * Función para renderizar el panel de configuración
+ */
+void renderSettingsPanel() {
+	// Posición del panel en centro de la pantalla y tamaño prefijado (siempre que aparezca)
+	ImGui::SetNextWindowPos(ImVec2(ANCHO / 2.0f - 200, ALTO / 2.0f - 150), ImGuiCond_Appearing);
+	ImGui::SetNextWindowSize(ImVec2(400, 300), ImGuiCond_Appearing);
+    
+	// Si se muestra el panel, renderizamos su contenido (sin movimiento ni colapso)
+    if (show_settings && ImGui::Begin("Configuración", &show_settings, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse)) {
+        // Slider para el FOV (Field of View)
+        ImGui::SliderFloat("FOV (Campo de Visión)", &cam_fov, 55.0f, 100.0f);
+        
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+        
+        // Slider para velocidad de movimiento
+        ImGui::SliderFloat("Velocidad de Movimiento", &cam_speed, 1.0f, 10.0f);
+        
+        // Slider para velocidad de carrera
+        ImGui::SliderFloat("Velocidad de Carrera", &cam_run_speed, 2.0f, 15.0f);
+        
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+        
+        // Slider para sensibilidad del ratón
+        ImGui::SliderFloat("Sensibilidad del Ratón", &mouse_sensitivity, 0.01f, 0.5f);
+        
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+        
+		// Botón para aceptar cambios y cerrar panel (verde)
+		ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.1f, 0.7f, 0.1f, 1.0f));
+		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.3f, 1.0f, 0.3f, 1.0f)); 
+		ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.1f, 0.6f, 0.1f, 1.0f));
+        if (ImGui::Button("Aceptar", ImVec2(180, 0))) {
+            show_settings = false;
+        }
+		ImGui::PopStyleColor(3);
+
+		// Botón para restablecer valores por defecto (naranja)
+		ImGui::SameLine(); // En horizontal al botón de aceptar
+		ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.7f, 0.4f, 0.0f, 1.0f));
+		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(1.0f, 0.5f, 0.0f, 1.0f));
+		ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.6f, 0.4f, 0.0f, 1.0f));
+		if (ImGui::Button("Restablecer", ImVec2(180, 0))) {
+			cam_fov = 62.0f;
+			cam_speed = 3.0f;
+			cam_run_speed = 4.5f;
+			mouse_sensitivity = 0.1f;
+		}
+		ImGui::PopStyleColor(3);
+
+		// Botón para cerrar el juego (rojo)
+		ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.8f, 0.2f, 0.2f, 1.0f));
+		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(1.0f, 0.3f, 0.3f, 1.0f));
+		ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.6f, 0.1f, 0.1f, 1.0f));
+		if (ImGui::Button("Cerrar Juego", ImVec2(380, 0))) {
+			glfwSetWindowShouldClose(window, true);
+		}
+		ImGui::PopStyleColor(3);
+        
+        ImGui::End();
+    }
+}
+
+/**
+ * Función para renderizar la interfaz del juego con ImGui
+ */
+void renderGameUI(ImGuiIO& io) {
+	// Panel de estadísticas en esquina superior derecha, con tamaño fijo (siempre)
+    ImGui::SetNextWindowPos(ImVec2(ANCHO - 320, 10), ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(300, 160), ImGuiCond_Always);
+    
+	// Si se muestra el panel, renderizamos su contenido (sin título ni movimiento)
+    if (show_stats && ImGui::Begin("Estadísticas", &show_stats, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove)) {
+		ImGui::Text("Salud");
+        ImGui::ProgressBar(player_health / 100.0f, ImVec2(-1, 0));
+        
+        ImGui::Text("Maná");
+        ImGui::ProgressBar(player_mana / 50.0f, ImVec2(-1, 0));
+
+		ImGui::Text("Llaves");
+        ImGui::ProgressBar(player_keys / 3.0f, ImVec2(-1, 0));
+        
+        ImGui::End();
+    }
+    
+    // Si se muestra el panel de configuración llamamos a su render
+	if (show_settings){
+		renderSettingsPanel();
+	}
+}
+
 // Declaración adelantada de función
 bool can_move(vec3& new_pos);
 
@@ -736,6 +864,26 @@ void render_scene()
 	glBindVertexArray(escena_cubica.VAO);             // Activamos VAO del cubo
 	glDrawArrays(GL_TRIANGLES, 0, escena_cubica.Nv);  // Dibujamos todos los triangulos del cubo
 	glBindVertexArray(0);                             // Desconectamos VAO
+
+	// Obtenemos referencia a ImGuiIO
+	ImGuiIO& io = ImGui::GetIO();
+
+	// Renderizamos la interfaz de usuario con ImGui
+	ImGui_ImplOpenGL3_NewFrame();
+	ImGui_ImplGlfw_NewFrame();
+	ImGui::NewFrame();
+	renderGameUI(io);
+	ImGui::Render();
+	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+	
+	// Gestionar visibilidad del cursor: mostrar cuando hay menú abierto o ImGui lo necesita
+	if (show_settings) {
+		// Mostrar cursor cuando el menú está abierto o ImGui lo necesita
+		glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+	} else {
+		// Ocultar cursor para control de cámara
+		glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+	}
 }
 
 
@@ -748,11 +896,12 @@ void render_scene()
  */
 int main(int argc, char* argv[])
 {
-	init_GLFW();            // Inicializa lib GLFW
-	window = Init_Window(prac);  // Crea ventana usando GLFW, asociada a un contexto OpenGL	X.Y
-	load_Opengl();         // Carga funciones de OpenGL, comprueba versión.
-	init_scene();          // Prepara escena
+	init_GLFW(); // Inicializa lib GLFW
+	window = Init_Window(prac); // Crea ventana usando GLFW, asociada a un contexto OpenGL	X.Y
+	load_Opengl(); // Carga funciones de OpenGL, comprueba versión.
+	init_scene(); // Prepara escena
 	asigna_funciones_callback(window); // Registramos callbacks de entrada
+	init_imgui(); // Inicializamos ImGui
 	
 	// Ocultamos y capturamos el cursor en la ventana para control de cámara con ratón
 	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
@@ -768,6 +917,10 @@ int main(int argc, char* argv[])
 		show_info();
 	}
 
+	// Limpiamos ImGui y GLFW
+	ImGui_ImplOpenGL3_Shutdown();
+	ImGui_ImplGlfw_Shutdown();
+	ImGui::DestroyContext();
 	glfwTerminate();
 	exit(EXIT_SUCCESS);
 }
@@ -844,14 +997,31 @@ void ResizeCallback(GLFWwindow* window, int width, int height)
  */
 static void KeyCallback(GLFWwindow* window, int key, int code, int action, int mode)
 {
-	if (key == GLFW_KEY_ESCAPE) {
-		glfwSetWindowShouldClose(window, true);
+	// Si ImGui está mostrando el menú de configuración, no procesamos movimientos
+	if (show_settings) {
+		// Solo procesamos ESC para cerrar el menú
+		if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
+			show_settings = false;
+		}
+
+		// Y establecemos resto de teclas en false para evitar que queden "pulsadas" al cerar el menú
+		for (int i = 0; i < 7; i++) {
+			keys_pressed[i] = false;
+		}
+
+		return;
 	}
 
 	// Actualizamos el estado de las teclas de movimiento
 	bool is_pressed = (action == GLFW_PRESS || action == GLFW_REPEAT);
 	
 	switch (key) {
+		case GLFW_KEY_ESCAPE:
+			// Si se pulsa ESC, mostramos el menú de configuración
+			if (action == GLFW_PRESS) {
+				show_settings = true;
+			}
+			break;
 		case GLFW_KEY_W:
 			keys_pressed[0] = is_pressed; // W: Adelante
 			break;
@@ -885,6 +1055,14 @@ static void KeyCallback(GLFWwindow* window, int key, int code, int action, int m
  */
 static void MouseCallback(GLFWwindow* window, double xpos, double ypos)
 {
+	// Si ImGui está mostrando el menú de configuración, no procesamos movimientos
+	if (show_settings) {
+		// Actualizamos la posición del ratón para evitar saltos al cerrar el menú
+		last_mouse_x = xpos;
+		last_mouse_y = ypos;
+		return;
+	}
+
 	// Calculamos el delta del movimiento actual respecto a la posición anterior y aplicamos sensibilidad
 	double delta_x = (xpos - last_mouse_x) * mouse_sensitivity;
 	double delta_y = (ypos - last_mouse_y) * mouse_sensitivity;

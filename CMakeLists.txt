@@ -53,7 +53,13 @@ set(GPO_SOURCE_FILES include/stb/stb_image.h
 					 include/maze.h
 					 src/GPO_proyecto_final.cpp
 					 src/GPO_aux.cpp
-					 src/maze.cpp)
+					 src/maze.cpp
+					 libs/imgui/imgui.cpp
+					 libs/imgui/imgui_draw.cpp
+					 libs/imgui/imgui_tables.cpp
+					 libs/imgui/imgui_widgets.cpp
+					 libs/imgui/backends/imgui_impl_glfw.cpp
+					 libs/imgui/backends/imgui_impl_opengl3.cpp)
 add_executable(gpo_proyecto_final ${GPO_SOURCE_FILES})
 target_link_libraries(gpo_proyecto_final PRIVATE ${OPENGL_LIBRARIES} glfw glm glad_interface)
 
