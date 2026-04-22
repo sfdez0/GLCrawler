@@ -22,7 +22,7 @@ private:
     std::vector<BoundingBox> wallBoundingBoxes; // Vector con bounding boxes de todos los muros
 
 public:
-    Maze(int r, float size = 2.0f);
+    Maze(int side_size, float size = 2.0f);
     ~Maze();
 
     void setMap(const int *data, int r);

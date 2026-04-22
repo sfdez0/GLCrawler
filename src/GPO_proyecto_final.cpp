@@ -33,9 +33,9 @@ int player_keys = 0;
 
 /**
  * Estructura para almacenar datos de antorchas
- * `x:` posición horizontal (columna)
- * `y:` posición vertical (fila)
- * `direction:` dirección de la antorcha (u=arriba, d=abajo, r=derecha, l=izquierda)
+ * @param x posición horizontal (columna)
+ * @param y posición vertical (fila)
+ * @param direction dirección de la antorcha (u=arriba, d=abajo, r=derecha, l=izquierda)
  */
 struct Torch {
 	int x;
@@ -45,8 +45,8 @@ struct Torch {
 
 /**
  * Estructura para almacenar datos de llaves
- * `x:` posición horizontal (columna)
- * `y:` posición vertical (fila)
+ * @param x posición horizontal (columna)
+ * @param y posición vertical (fila)
  */
 struct Keys {
 	int x;
@@ -55,8 +55,8 @@ struct Keys {
 
 /**
  * Estructura para almacenar datos de enemigos
- * `x:` posición horizontal (columna)
- * `y:` posición vertical (fila)
+ * @param x posición horizontal (columna)
+ * @param y posición vertical (fila)
  */
 struct Enemy {
 	int x;
@@ -65,8 +65,8 @@ struct Enemy {
 
 /**
  * Estructura para almacenar datos de la salida del laberinto
- * `x:` posición horizontal (columna)
- * `y:` posición vertical (fila)
+ * @param x posición horizontal (columna)
+ * @param y posición vertical (fila)
  */
 struct Exit {
 	int x;
@@ -75,6 +75,10 @@ struct Exit {
 
 /**
  * Estructura para almacenar todas las entidades del juego (antorchas, llaves, enemigo, salida)
+ * @param torches vector de antorchas
+ * @param keys vector de llaves
+ * @param enemy enemigo
+ * @param exit salida del laberinto
  */
 struct Entities {
 	std::vector<Torch> torches;
@@ -164,30 +168,36 @@ GLFWwindow* window;
 GLuint prog;
 objeto escena_cubica; // Objeto para el escenario del laberinto
 
+
 /**
  * Función para cargar el mapa del laberinto desde un archivo .txt
  * El archivo debe contener valores separados por comas (1 = muro, 0 = vacío)
  * Las filas deben estar en líneas separadas
+ * @param filename ruta del archivo .txt con el mapa del laberinto
+ * @param side_size tamaño lateral del mapa (cuadrado)
+ * @return puntero a un array dinámico con los datos del mapa o nullptr si hubo error al cargar el archivo
  */
-int* load_maze_from_file(const char* filename, int rows, int cols) {
+int* load_maze_from_file(const char* filename, int side_size) {
 	std::ifstream file(filename);
 	if (!file.is_open()) {
 		printf("CARGA: Error - No se pudo abrir el archivo: %s\n", filename);
 		return nullptr;
 	}
 
+	int map_size = side_size * side_size;
+
 	// Creamos un array dinámico para almacenar el mapa
-	int* map = new int[rows * cols];
+	int* map = new int[map_size];
 
 	int index = 0;
 	std::string line;
 
 	// Iteramos por línea por línea
-	while (std::getline(file, line) && index < rows * cols) {
+	while (std::getline(file, line) && index < map_size) {
 		std::istringstream iss(line);
 		int value = 0;
 		char comma;
-		while (index < rows * cols && value != -1) {
+		while (index < map_size && value != -1) {
 			// Intentamos leer un valor entero
 			if (iss >> value) {
 				// Insertamos el valor en el array del mapa
@@ -205,8 +215,8 @@ int* load_maze_from_file(const char* filename, int rows, int cols) {
 	// Cerramos archivo y verificamos si se leyeron todos los valores esperados
 	file.close();
 
-	if (index != rows * cols) {
-		printf("CARGA: Advertencia - El número de valores leídos (%d) no coincide con el tamaño esperado del mapa (%d)\n", index, rows * cols);
+	if (index != map_size) {
+		printf("CARGA: Advertencia - El número de valores leídos (%d) no coincide con el tamaño esperado del mapa (%d)\n", index, map_size);
 	}
 
 	return map;
@@ -215,6 +225,7 @@ int* load_maze_from_file(const char* filename, int rows, int cols) {
 /**
  * Función para cargar datos de antorchas desde un archivo .txt
  * El formato esperado es: a, int, int, letra (donde letra es u, d, r, l)
+ * @return Entities estructura con los datos de las entidades cargadas (antorchas, llaves, enemigo, salida)
  */
 Entities load_entities_from_file(const char* filename, int maze_rows) {
 	Entities ent;
@@ -311,6 +322,7 @@ Entities load_entities_from_file(const char* filename, int maze_rows) {
 /**
  * Función para crear el escenario del laberinto
  * Genera cubos para cada pared del mapa 2D
+ * @return objeto con VAO y número de vértices para renderizar el escenario del laberinto
  */
 objeto crear_escena(){
 	objeto obj;
@@ -318,21 +330,21 @@ objeto crear_escena(){
 	GLuint buffer_pos, buffer_uv;
 	
 	// Creamos el laberinto con 15 filas, 15 columnas y tamaño de celda 4.0 unidades
-	int rows = 15, cols = 15;
-	maze = new Maze(rows, 4.0f);
+	int side_size = 15;
+	maze = new Maze(side_size, 4.0f);
 
 	// Cargamos el mapa desde el archivo .txt (1 = muro, 0 = vacío)
-	int* map = load_maze_from_file("bin/data/maze_map.txt", rows, cols);
+	int* map = load_maze_from_file("bin/data/maze_map.txt", side_size);
 	if (map == nullptr) {
 		printf("CARGA: Error - No se pudo cargar el mapa del laberinto\n");
 		return obj;
 	}
 
 	// Cargamos los datos de antorchas
-	entities = load_entities_from_file("bin/data/maze_map.txt", rows);
+	entities = load_entities_from_file("bin/data/maze_map.txt", side_size);
 
 	// Cargamos el mapa en la clase Maze
-	maze->setMap(map, rows);
+	maze->setMap(map, side_size);
 
 	// Contamos cuantos cubos necesitamos
 	int wall_count = 0;
@@ -584,8 +596,7 @@ objeto crear_escena(){
  * Compila los programas a ejecutar en la tarjeta gráfica: vertex shader, fragment shader
  * Configura opciones generales de render de OpenGL
  */
-void init_scene()
-{
+void init_scene() {
 	int width, height;
     glfwGetFramebufferSize(window, &width, &height);
     glViewport(0, 0, width, height); 
@@ -619,10 +630,10 @@ void init_scene()
 
 	// Indicamos que programa vamos a usar 
 	glUseProgram(prog);
-	GLuint tex_brick = cargar_textura("data/brick.jpg", GL_TEXTURE0);
+	GLuint tex_brick = cargar_textura("bin/data/brick.jpg", GL_TEXTURE0);
 	transfer_int("tex", 0);
 
-	GLuint tex_normal = cargar_textura("data/brick_normal.jpg", GL_TEXTURE1);
+	GLuint tex_normal = cargar_textura("bin/data/brick_normal.jpg", GL_TEXTURE1);
 	transfer_int("normalMap",1);
 }
 
@@ -742,6 +753,7 @@ void renderSettingsPanel() {
 
 /**
  * Función para renderizar la interfaz del juego con ImGui
+ * @param io Referencia a la estructura i/o de ImGui
  */
 void renderGameUI(ImGuiIO& io) {
 	// Panel de estadísticas en esquina superior derecha, con tamaño fijo (siempre)
@@ -876,12 +888,10 @@ void render_scene()
 	ImGui::Render();
 	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 	
-	// Gestionar visibilidad del cursor: mostrar cuando hay menú abierto o ImGui lo necesita
+	// Mostramos/ocultamos el cursor cuando hay menú abierto
 	if (show_settings) {
-		// Mostrar cursor cuando el menú está abierto o ImGui lo necesita
 		glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 	} else {
-		// Ocultar cursor para control de cámara
 		glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 	}
 }
@@ -893,6 +903,9 @@ void render_scene()
 
 /**
  * Programa principal
+ * @param argc Número de argumentos
+ * @param argv Array de argumentos
+ * @return Código de salida
  */
 int main(int argc, char* argv[])
 {
@@ -954,6 +967,8 @@ void show_info()
 
 /**
  * Función para verificar si la cámara puede moverse a una nueva posición sin colisionar con las paredes del laberinto
+ * @param new_pos Nueva posición a la que se quiere mover la cámara
+ * @return true si la cámara puede moverse a la nueva posición sin colisiones, false
  */
 bool can_move(vec3& new_pos) {
 	// Comprobamos si la nueva posición colisionaría con alguna bounding box
@@ -967,8 +982,9 @@ bool can_move(vec3& new_pos) {
 
 /**
  * Función que procesa el cambio de tamaño en la ventana
- * `window`: puntero a la ventana GLFW
- * `width`, `height`: nuevo ancho y alto de la ventana
+ * @param window puntero a la ventana GLFW
+ * @param width nuevo ancho de la ventana
+ * @param height nuevo alto de la ventana
  */
 void ResizeCallback(GLFWwindow* window, int width, int height)
 {
@@ -989,11 +1005,11 @@ void ResizeCallback(GLFWwindow* window, int width, int height)
 
 /**
  * Función que procesa las pulsaciones de teclas para controlar el movimiento de la cámara
- * `window`: puntero a la ventana GLFW
- * `key`: código de la tecla pulsada
- * `code`: código
- * `action`: tipo de acción
- * `mode`: estado de las teclas modificadoras (Shift, Ctrl, Alt)
+ * @param window puntero a la ventana GLFW
+ * @param key código de la tecla pulsada
+ * @param code código
+ * @param action tipo de acción
+ * @param mode estado de las teclas modificadoras (Shift, Ctrl, Alt)
  */
 static void KeyCallback(GLFWwindow* window, int key, int code, int action, int mode)
 {
@@ -1050,8 +1066,8 @@ static void KeyCallback(GLFWwindow* window, int key, int code, int action, int m
 
 /**
  * Función que procesa el movimiento del ratón para controlar la orientación de la cámara
- * `window`: puntero a la ventana GLFW
- * `xpos`, `ypos`: posición actual del cursor en la ventana
+ * @param window puntero a la ventana GLFW
+ * @param xpos, ypos posición actual del cursor en la ventana
  */
 static void MouseCallback(GLFWwindow* window, double xpos, double ypos)
 {

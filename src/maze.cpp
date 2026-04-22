@@ -6,8 +6,8 @@
  * `r` Número de filas y columnas del mapa (cuadrado)
  * `size` Tamaño de cada celda en unidades 3D (por defecto 2.0f)
  */
-Maze::Maze(int r, float size) 
-: rows(r), columns(r), tile_size(size) {
+Maze::Maze(int side_size, float size) 
+: rows(side_size), columns(side_size), tile_size(size) {
     // Inicializamos la matriz con cero
     map.resize(rows, std::vector<int>(columns, 0));
 }
