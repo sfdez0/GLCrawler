@@ -13,6 +13,10 @@
 #include <imgui.h>
 #include <backends/imgui_impl_glfw.h>
 #include <backends/imgui_impl_opengl3.h>
+#include <GPO_assimp_aux.h>
+#include <flame.h>
+#include <lighting.h>
+#include <torch_module.h>
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////     VARIABLES GLOBALES 
@@ -108,8 +112,8 @@ const char* vertex_prog = GLSL(
 	out vec3 FragPos;
 	out mat3 TBN;
 
-	uniform mat4 MVP = mat4(1.0f); // Matriz de transformación MVP
-	uniform mat4 M = mat4(1.0f);
+	uniform mat4 MVP; // Matriz de transformación MVP
+	uniform mat4 M;
 
 	void main() { 
 		gl_Position = MVP * vec4(pos,1); 
@@ -130,32 +134,48 @@ const char* fragment_prog = GLSL(
 
 	uniform sampler2D tex;
 	uniform sampler2D normalMap;
-	uniform vec3 lightPos;
+	uniform int numLights;
+	uniform vec3 lightPositions[16];
+	uniform vec3 lightColors[16];
 	uniform vec3 camPos;
 
 	out vec3 outputColor; // Color final que se pintará en la pantalla
 	void main() {
 		vec3 texColor = texture(tex, UV).rgb;
-		vec3 torchColor = vec3(1.0, 0.9, 0.75);
 
 		vec3 N = texture(normalMap, UV).rgb;
 		N = N * 2.0 - 1.0;
 		N.xy *= 2.5;
 		N = normalize(TBN * N);
 
-		float ambient = 0.05;
-
-		vec3 L = normalize(lightPos - FragPos);
-		float diffuse = max(dot(N,L), 0.0);
-
 		vec3 V = normalize(camPos - FragPos);
-		vec3 R = reflect(-L, N);
-		float specular = pow(max(dot(V, R), 0.0), 4.0) * 0.15;
 
-		float dist = length(lightPos - FragPos);
-		float attenuation = 1.0 / (0.5 + 0.05 * dist + 0.02 * dist * dist);
+		// Iluminación ambiente muy baja 
+		vec3 ambient = vec3(0.03) * texColor;
+		vec3 result = ambient;
 
-		outputColor = (texColor * (ambient + 1.5 * diffuse * attenuation) + vec3(specular * attenuation)) * torchColor ;
+		// Acumular contribución de cada antorcha
+		for(int i = 0; i < numLights; i++){
+			vec3 L = lightPositions[i] - FragPos;
+			float dist = length(L);
+			L = normalize(L);
+
+			//Difusa
+			float diffuse = max(dot(N,L), 0.0);
+
+			// Especular 
+			vec3 R = reflect(-L, N);
+			float specular = pow(max(dot(V, R), 0.0), 4.0) * 0.15;
+
+			// Atenuación
+			float attenuation = 1.0 / (1.0 + 0.15 * dist + 0.04 * dist * dist);
+			vec3 contribution = (texColor * diffuse + vec3(specular))
+								* lightColors[i]
+								* attenuation;
+			result += contribution;
+		}
+
+		outputColor = result;
 	}
 );
 
@@ -630,16 +650,24 @@ void init_scene() {
 
 	// Indicamos que programa vamos a usar 
 	glUseProgram(prog);
-	GLuint tex_brick = cargar_textura("bin/data/brick.jpg", GL_TEXTURE0);
+GLuint tex_brick = cargar_textura("bin/data/brick.jpg", GL_TEXTURE0);
 	transfer_int("tex", 0);
 
 	GLuint tex_normal = cargar_textura("bin/data/brick_normal.jpg", GL_TEXTURE1);
 	transfer_int("normalMap",1);
+
+	// Cargar ANTORCHAS
+	torch_module::init();
+	flame::init();
+
+	// Volver al programa principal
+	glUseProgram(prog);
+	printf("DEBUG: numero de antorchas = %zu\n", entities.torches.size());
 }
 
 
 // Variables para la cámara
-vec3 cam_pos = vec3(0.0f, 3.0f, 3.0f); // Posición inicial de la cámara (observador)
+vec3 cam_pos = vec3(-26.0f, 3.0f, -26.0f); // Posición inicial de la cámara (observador)
 vec3 cam_target = vec3(0.0f, 0.0f, 1.0f); // Dirección hacia donde mira la cámara
 vec3 cam_up = vec3(0.0f, 1.0f, 0.0f); // Vector "arriba" de la cámara
 float cam_fov = 62.0f; // Campo de visión inicial
@@ -797,6 +825,23 @@ void render_scene()
 	glClearColor(0.0f, 0.0f, 0.0f, 0.0f); // Especifica color para el fondo oscuro (RGB+alfa)
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // Limpia buffers de color y profundidad
 
+	//Construir array de luces
+	lighting::clear();
+
+	vec3 torchColor = vec3(1.0f, 0.7f, 0.35f);
+	float tile_size = maze-> getTileSize();
+	float maze_center_xz = (maze->getColumns() * tile_size) / 2.0f;
+
+	// Luz del jugador
+	lighting::add(cam_pos + vec3(0.0f, -0.5f, 0.0f), torchColor);
+	
+	//Antorchas en las paredes
+	for(const Torch& t : entities.torches){
+		vec3 lightPos = lighting::compute_torch_light_pos(
+			t.x, t.y, t.direction, tile_size, maze_center_xz);
+		lighting::add(lightPos, torchColor);
+	}
+	
 	// Calculamos delta time para movimiento suave (e independiente de FPS)
 	double current_time = glfwGetTime();
 	double delta_time = current_time - last_frame_time;
@@ -867,15 +912,37 @@ void render_scene()
 	// Matriz identidad para el cubo (sin transformaciones)
 	M = glm::mat4(1.0f);
 	
+	glUseProgram(prog);
+
 	transfer_mat4("MVP", P * V * M);
 	transfer_mat4("M", M);
-	transfer_vec3("lightPos", cam_pos + vec3(0.0f, -1.5f, 0.0f));
 	transfer_vec3("camPos", cam_pos);
 	
+	// Subir array de luces
+	lighting::upload_to_shader(prog);
+
 	// Dibujamos el cubo del escenario
 	glBindVertexArray(escena_cubica.VAO);             // Activamos VAO del cubo
 	glDrawArrays(GL_TRIANGLES, 0, escena_cubica.Nv);  // Dibujamos todos los triangulos del cubo
 	glBindVertexArray(0);                             // Desconectamos VAO
+
+	// Dibujamos antorchas según entidades cargadas del mapa
+	const float torch_scale = 0.6f;
+
+	for(const Torch& t : entities.torches){
+		vec3 torch_pos = torch_module::compute_world_pos(
+			t.x, t.y, t.direction, tile_size, maze_center_xz
+		);
+		float rot_y = torch_module::compute_rotation(t.direction);
+
+		torch_module::draw(torch_pos,torch_scale, rot_y, P, V);
+
+		// La llama va por encima del torch + adelante (en la dirección del pasillo)
+		vec3 flame_pos = flame::compute_position(torch_pos, t.direction);
+		flame::draw(flame_pos, 2.0f, P, V);
+	}
+
+	glUseProgram(prog);
 
 	// Obtenemos referencia a ImGuiIO
 	ImGuiIO& io = ImGui::GetIO();

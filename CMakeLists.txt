@@ -30,7 +30,7 @@ add_subdirectory(libs/glfw EXCLUDE_FROM_ALL)
 add_subdirectory(libs/glad )
 
 set(ASSIMP_NO_EXPORT ON)
-set(ASSIMP_BUILD_ZLIB ON)
+set(ASSIMP_BUILD_ZLIB OFF) #Configuración mac
 set(ASSIMP_BUILD_TESTS OFF)
 set(ASSIMP_INSTALL OFF)
 set(ASSIMP_BUILD_ASSIMP_VIEW OFF)
@@ -46,14 +46,22 @@ include_directories(libs/assimp/include)
 include_directories(${PROJECT_SOURCE_DIR}/include)
 include_directories(${PROJECT_SOURCE_DIR}/include/KHR)
 include_directories(${PROJECT_SOURCE_DIR}/include/stb)
-
+include_directories(${PROJECT_SOURCE_DIR}/tests/assimp)
 
 set(GPO_SOURCE_FILES include/stb/stb_image.h
 					 include/GpO.h
 					 include/maze.h
+					 include/flame.h
+					 include/lighting.h
+					 include/torch_module.h
 					 src/GPO_proyecto_final.cpp
 					 src/GPO_aux.cpp
 					 src/maze.cpp
+					 src/flame.cpp
+					 src/lighting.cpp
+					 src/torch_module.cpp
+					 tests/assimp/GPO_assimp_aux.h
+					 tests/assimp/GPO_assimp_aux.cpp
 					 libs/imgui/imgui.cpp
 					 libs/imgui/imgui_draw.cpp
 					 libs/imgui/imgui_tables.cpp
@@ -61,7 +69,7 @@ set(GPO_SOURCE_FILES include/stb/stb_image.h
 					 libs/imgui/backends/imgui_impl_glfw.cpp
 					 libs/imgui/backends/imgui_impl_opengl3.cpp)
 add_executable(gpo_proyecto_final ${GPO_SOURCE_FILES})
-target_link_libraries(gpo_proyecto_final PRIVATE ${OPENGL_LIBRARIES} glfw glm glad_interface)
+target_link_libraries(gpo_proyecto_final PRIVATE ${OPENGL_LIBRARIES} glfw glm glad_interface assimp)
 
 
 set_target_properties(gpo_proyecto_final

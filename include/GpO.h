@@ -1,5 +1,7 @@
 #define minGW
 
+#pragma once
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -56,6 +58,7 @@ char* leer_codigo_de_fichero(const char*);
 
 GLuint cargar_cube_map(const char *, GLuint);
 GLuint cargar_textura(const char *,GLuint);
+GLuint cargar_textura_rgba(const char *,GLuint);
 objeto cargar_modelo(char*);
 
 void transfer_mat4(const char*, mat4);

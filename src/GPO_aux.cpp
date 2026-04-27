@@ -213,6 +213,46 @@ GLuint cargar_textura(const char * imagepath, GLuint tex_unit)
 	return textureID;
 }
 
+GLuint cargar_textura_rgba(const char * imagepath, GLuint tex_unit)
+{
+	stbi_set_flip_vertically_on_load(true);
+
+	int width, height,nrChannels;
+	unsigned char* data = stbi_load(imagepath, &width, &height,&nrChannels,4);
+
+	if (data == NULL)
+	{
+		fprintf(stdout, "Error al cargar imagen RGBA: existe el fichero %s?\n",imagepath);
+		glfwTerminate();
+		return 0;
+	}
+
+	glActiveTexture(tex_unit);   //glBindTexture(GL_TEXTURE_2D, 0); 
+	
+	GLuint textureID;
+	glGenTextures(1, &textureID);             // Crear objeto textura
+	glBindTexture(GL_TEXTURE_2D, textureID);  // "Bind" la textura creada
+	
+	//printf("%d %d data %8X\n", width, height, data);
+
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);  //Pasa datos a GPU
+
+	glGenerateMipmap(GL_TEXTURE_2D);
+	
+	stbi_image_free(data); 
+
+	// Opciones de muestreo, magnificación, coordenadas fuera del borde, etc.
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR); 
+	
+
+	//glBindTexture(GL_TEXTURE_2D, 0); 
+	// DEvolvemos ID de la textura creada y cargada con la imagen
+	return textureID;
+}
+
 
 
 GLuint cargar_cube_map(const char * imagepath, GLuint tex_unit)
