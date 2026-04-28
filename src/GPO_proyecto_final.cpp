@@ -773,6 +773,15 @@ void renderSettingsPanel() {
         ImGui::Separator();
         ImGui::Spacing();
         
+        // Controles para mapas de texturas
+        ImGui::Text("Mapas de Texturas");
+        ImGui::SliderFloat("Intensidad Displacement", &displacement_intensity, 0.0f, 2.0f);
+        ImGui::SliderFloat("Intensidad AO", &ao_intensity, 0.0f, 2.0f);
+        
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+
 		// Botón para aceptar cambios y cerrar panel (verde)
 		ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.1f, 0.7f, 0.1f, 1.0f));
 		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.3f, 1.0f, 0.3f, 1.0f)); 
@@ -792,6 +801,8 @@ void renderSettingsPanel() {
 			cam_speed = 3;
 			cam_run_speed = 4;
 			mouse_sensitivity = 0.1f;
+			displacement_intensity = 1.0f;
+			ao_intensity = 1.0f;
 		}
 		ImGui::PopStyleColor(3);
 
@@ -946,6 +957,8 @@ void render_scene()
 	transfer_mat4("MVP", P * V * M);
 	transfer_mat4("M", M);
 	transfer_vec3("camPos", cam_pos);
+	transfer_float("displacement_intensity", displacement_intensity);
+	transfer_float("ao_intensity", ao_intensity);
 	
 	// Subir array de luces
 	lighting::upload_to_shader(prog);
