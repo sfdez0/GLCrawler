@@ -152,16 +152,28 @@ const char* fragment_prog = GLSL(
 		N.xy *= 2.5;
 		N = normalize(TBN * N);
 
+		// Cargamos displacement para modular la intensidad del normal y aplicamos intensidad
+		float displacement = texture(displacementMap, UV).r * displacement_intensity;
+		displacement = clamp(displacement, 0.0, 1.0);
+		N = normalize(mix(N, normalize(vec3(0.0, 1.0, 0.0)), displacement * 0.3));
+
+		// Cargamos ambient occlusion y aplicamos intensidad
+		float ao = texture(aoMap, UV).r;
+		ao = mix(1.0, ao, ao_intensity * 0.5);
+
+		// El ambient ahora incluye el AO
+		vec3 ambient = texColor * (0.05 * ao);
+
 		vec3 V = normalize(camPos - FragPos);
 
-		// Iluminación ambiente muy baja 
-		vec3 ambient = vec3(0.03) * texColor;
 		vec3 result = ambient;
+
+		float specularPower = mix(32.0, 2.0, 1.0f);
 
 		// Acumular contribución de cada antorcha
 		for(int i = 0; i < numLights; i++){
 			vec3 L = lightPositions[i] - FragPos;
-			float dist = length(L);
+			float light_dist = length(L);  // Distancia entre la luz y el fragmento
 			L = normalize(L);
 
 			//Difusa
@@ -169,13 +181,16 @@ const char* fragment_prog = GLSL(
 
 			// Especular 
 			vec3 R = reflect(-L, N);
-			float specular = pow(max(dot(V, R), 0.0), 4.0) * 0.15;
+			float specular = pow(max(dot(V, R), 0.0), specularPower) * 0.045;
 
-			// Atenuación
-			float attenuation = 1.0 / (1.0 + 0.15 * dist + 0.04 * dist * dist);
-			vec3 contribution = (texColor * diffuse + vec3(specular))
-								* lightColors[i]
-								* attenuation;
+			// Calculos relativos a la luz del personaje
+			float light_range = 6.0; // Rango máximo de la luz
+			float light_soft = 2.0; // Rango de suavizado al final del rango máximo
+			float light_cutoff = 1.0 - smoothstep(light_range - light_soft, light_range, light_dist); // Factor de atenuación basado en la distancia
+			float light_attenuation = light_cutoff / (1.0 + 0.2 * light_dist + 0.5 * light_dist * light_dist); // Atenuación
+
+			vec3 contribution = (texColor * ((ambient * light_cutoff) + 1.5 * diffuse * light_attenuation * ao) + vec3(specular * light_attenuation)) * lightColors[i];
+
 			result += contribution;
 		}
 
