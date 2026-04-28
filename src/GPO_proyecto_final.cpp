@@ -134,10 +134,14 @@ const char* fragment_prog = GLSL(
 
 	uniform sampler2D tex;
 	uniform sampler2D normalMap;
+	uniform sampler2D displacementMap;
+	uniform sampler2D aoMap;
 	uniform int numLights;
 	uniform vec3 lightPositions[16];
 	uniform vec3 lightColors[16];
 	uniform vec3 camPos;
+	uniform float displacement_intensity;
+	uniform float ao_intensity;
 
 	out vec3 outputColor; // Color final que se pintará en la pantalla
 	void main() {
@@ -650,11 +654,17 @@ void init_scene() {
 
 	// Indicamos que programa vamos a usar 
 	glUseProgram(prog);
-GLuint tex_brick = cargar_textura("bin/data/brick.jpg", GL_TEXTURE0);
+	GLuint tex_brick = cargar_textura("bin/data/brick.jpg", GL_TEXTURE0);
 	transfer_int("tex", 0);
 
-	GLuint tex_normal = cargar_textura("bin/data/brick_normal.jpg", GL_TEXTURE1);
-	transfer_int("normalMap",1);
+	GLuint tex_normal = cargar_textura("bin/data/brick_n.jpg", GL_TEXTURE1);
+	transfer_int("normalMap", 1);
+
+	GLuint tex_displacement = cargar_textura("bin/data/brick_d.jpg", GL_TEXTURE3);
+	transfer_int("displacementMap", 2);
+
+	GLuint tex_ao = cargar_textura("bin/data/brick_ao.jpg", GL_TEXTURE4);
+	transfer_int("aoMap", 3);
 
 	// Cargar ANTORCHAS
 	torch_module::init();
@@ -690,6 +700,10 @@ double last_frame_time = 0.0; // Tiempo del último frame
 // Variables de ImGui
 bool show_stats = true;
 bool show_settings = false;
+
+// Variables para controlar la intensidad de los mapas de texturas
+float displacement_intensity = 1.0f;  // Intensidad del desplazamiento (0.0 - 2.0)
+float ao_intensity = 1.0f;  // Intensidad del ambient occlusion (0.0 - 2.0)
 
 /**
  * Función para inicializar ImGui
