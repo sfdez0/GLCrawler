@@ -670,9 +670,9 @@ GLuint tex_brick = cargar_textura("bin/data/brick.jpg", GL_TEXTURE0);
 vec3 cam_pos = vec3(-26.0f, 3.0f, -26.0f); // Posición inicial de la cámara (observador)
 vec3 cam_target = vec3(0.0f, 0.0f, 1.0f); // Dirección hacia donde mira la cámara
 vec3 cam_up = vec3(0.0f, 1.0f, 0.0f); // Vector "arriba" de la cámara
-float cam_fov = 62.0f; // Campo de visión inicial
-float cam_speed = 3.0f; // Velocidad de movimiento de la cámara
-float cam_run_speed = 4.5f; // Velocidad en carrera (Shift)
+int cam_fov = 62; // Campo de visión inicial
+int cam_speed = 3; // Velocidad de movimiento de la cámara
+int cam_run_speed = 4; // Velocidad en carrera (Shift)
 float aspect_ratio = 4.0f / 3.0f; // Aspect ratio inicial (proporción de la ventana)
 float cam_radius = 0.5f; // Radio de colisión de la cámara (como esfera)
 
@@ -721,17 +721,17 @@ void renderSettingsPanel() {
 	// Si se muestra el panel, renderizamos su contenido (sin movimiento ni colapso)
     if (show_settings && ImGui::Begin("Configuración", &show_settings, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse)) {
         // Slider para el FOV (Field of View)
-        ImGui::SliderFloat("FOV (Campo de Visión)", &cam_fov, 55.0f, 100.0f);
+        ImGui::SliderInt("FOV (Campo de Visión)", &cam_fov, 55, 100);
         
         ImGui::Spacing();
         ImGui::Separator();
         ImGui::Spacing();
         
         // Slider para velocidad de movimiento
-        ImGui::SliderFloat("Velocidad de Movimiento", &cam_speed, 1.0f, 10.0f);
+        ImGui::SliderInt("Velocidad de Movimiento", &cam_speed, 1, 10);
         
         // Slider para velocidad de carrera
-        ImGui::SliderFloat("Velocidad de Carrera", &cam_run_speed, 2.0f, 15.0f);
+        ImGui::SliderInt("Velocidad de Carrera", &cam_run_speed, 2, 15);
         
         ImGui::Spacing();
         ImGui::Separator();
@@ -759,9 +759,9 @@ void renderSettingsPanel() {
 		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(1.0f, 0.5f, 0.0f, 1.0f));
 		ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.6f, 0.4f, 0.0f, 1.0f));
 		if (ImGui::Button("Restablecer", ImVec2(180, 0))) {
-			cam_fov = 62.0f;
-			cam_speed = 3.0f;
-			cam_run_speed = 4.5f;
+			cam_fov = 62;
+			cam_speed = 3;
+			cam_run_speed = 4;
 			mouse_sensitivity = 0.1f;
 		}
 		ImGui::PopStyleColor(3);
@@ -903,7 +903,7 @@ void render_scene()
 	///////// Actualizacion matrices M, V, P  /////////	
 	mat4 P, V, M, T, R, S;
 
-	P = perspective(glm::radians(cam_fov), aspect_ratio, 0.1f, 50.0f);  // FOV, aspect ratio, Znear, Zfar
+	P = perspective(glm::radians((float)cam_fov), aspect_ratio, 0.1f, 50.0f);  // FOV, aspect ratio, Znear, Zfar
 	
 	// El target es un punto adelante de la cámara en la dirección donde mira
 	vec3 target = cam_pos + cam_target;
