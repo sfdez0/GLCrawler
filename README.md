@@ -22,22 +22,23 @@ En el directio /build/bin se habrán generado los binarios correspondientes al p
 Se pueden lanzar haciendo click sobre ellos o desde el entorno de programacion.
 
 
-# Completado
-- Controles básicos (wasd,zx,qe)
-- Z-Buffer
-- Colisiones
-
-# Falta
-- Estructura física del laberinto
-- Texturas
-- Iluminación
-- UI
-- Mecánicas:
-    - Recoger piedras preciosas (3)
-    - Utilizar piedras preciosas para salir
-    - Denegar salida si no tiene las piedras
-    - Enemigo (y animaciones?)
-
+# Características
+- [x] Controles de movimiento (WASD, QE, ESC)
+- [x] Control de cámara con ratón
+- [x] Z-Buffer
+- [x] Colisiones
+- [x] Texturas
+- [x] UI con menú de pausa y HUD
+- [x] Carga de laberintos (mapas) desde archivos .txt con formato estándar
+- [x] Iluminación modo "niebla oscura" (solo se iluminan las areas cercanas a alguna luz)
+- [x] Antorchas con fuego e iluminación propia
+- [ ] Aleatorización de la intensidad de las luces
+- [ ] Sistema de partículas
+- [ ] IA Enemiga
+- [ ] Mecánica de recoger piedras preciosas/llaves
+- [ ] Mecánica de fin (salir del laberinto o morir)
+- [ ] Sonidos
 
 # Referencias
 - Colisiones: https://learnopengl.com/In-Practice/2D-Game/Collisions/Collision-detection
+- Textura de ladrillos: https://polyhaven.com/a/castle_brick_02_red
