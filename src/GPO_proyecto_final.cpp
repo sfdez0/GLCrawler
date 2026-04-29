@@ -37,14 +37,18 @@ int player_keys = 0;
 
 /**
  * Estructura para almacenar datos de antorchas
- * @param x posición horizontal (columna)
- * @param y posición vertical (fila)
- * @param direction dirección de la antorcha (u=arriba, d=abajo, r=derecha, l=izquierda)
  */
 struct Torch {
-	int x;
-	int y;
-	char direction;
+	// Posición en el mundo 3D calculada a partir de x_2D, y_2D y direction_2D
+	vec3 position; 
+	// Rotación en el eje Y en el mundo 3D
+	float rot_y;
+	// Coordenada "x" 2D en el mapa .txt
+	int x_2D;
+	// Coordenada "y" 2D en el mapa .txt
+	int y_2D;
+	// Dirección en 2D (u, d, r, l) en el mapa .txt
+	char direction_2D;
 };
 
 /**
@@ -53,8 +57,8 @@ struct Torch {
  * @param y posición vertical (fila)
  */
 struct Keys {
-	int x;
-	int y;
+	int x_2D;
+	int y_2D;
 };
 
 /**
@@ -63,8 +67,8 @@ struct Keys {
  * @param y posición vertical (fila)
  */
 struct Enemy {
-	int x;
-	int y;
+	int x_2D;
+	int y_2D;
 };
 
 /**
@@ -73,8 +77,8 @@ struct Enemy {
  * @param y posición vertical (fila)
  */
 struct Exit {
-	int x;
-	int y;
+	int x_2D;
+	int y_2D;
 };
 
 /**
@@ -265,9 +269,13 @@ int* load_maze_from_file(const char* filename, int side_size) {
 /**
  * Función para cargar datos de antorchas desde un archivo .txt
  * El formato esperado es: a, int, int, letra (donde letra es u, d, r, l)
+ * @param filename ruta del archivo .txt con los datos de las entidades
+ * @param maze_rows número de filas del mapa del laberinto
+ * @param tile_size tamaño de cada celda del laberinto para calcular posiciones en el mundo 3D
+ * @param maze_center_xz coordenada central del laberinto en el eje XZ para calcular posiciones en el mundo 3D
  * @return Entities estructura con los datos de las entidades cargadas (antorchas, llaves, enemigo, salida)
  */
-Entities load_entities_from_file(const char* filename, int maze_rows) {
+Entities load_entities_from_file(const char* filename, int maze_rows, float tile_size, float maze_center_xz) {
 	Entities ent;
 	std::ifstream file(filename);
 	
@@ -297,53 +305,58 @@ Entities load_entities_from_file(const char* filename, int maze_rows) {
 		// Parseamos: a, int, int, char
 		std::istringstream iss(line);
 		char type, comma;
-		int x, y;
-		char direction;
+		int x_2D, y_2D; // Coordenadas 2D en el mapa .txt
+		char direction_2D; // Dirección 2D en el mapa .txt (u, d, r, l)
 		
 		// Leemos según el formato esperado
 		if (iss >> type && iss >> comma && comma == ',') {
-			if (iss >> x && iss >> comma && comma == ',') {
-				if (iss >> y) {
+			if (iss >> x_2D && iss >> comma && comma == ',') {
+				if (iss >> y_2D) {
 					// Diferenciamos según el tipo de entidad
 					switch (type){
 						case 'a':
 							// Antorcha
-							if (iss >> comma && comma == ',' && iss >> direction) {
+							if (iss >> comma && comma == ',' && iss >> direction_2D) {
 								// Validamos la dirección
-								if (direction == 'u' || direction == 'd' || direction == 'r' || direction == 'l') {
+								if (direction_2D == 'u' || direction_2D == 'd' || direction_2D == 'r' || direction_2D == 'l') {
 									// Creamos el objeto y lo agregamos a la lista
 									Torch torch;
-									torch.x = x;
-									torch.y = y;
-									torch.direction = direction;
+									torch.position = torch_module::compute_world_pos(
+										x_2D, y_2D, direction_2D, tile_size, maze_center_xz
+									);
+									torch.rot_y = torch_module::compute_rotation(direction_2D);
+									torch.x_2D = x_2D;
+									torch.y_2D = y_2D;
+									torch.direction_2D = direction_2D;
+
 									ent.torches.push_back(torch);
-									printf("CARGA: Antorcha: x=%d, y=%d, dir=%c\n", x, y, direction);
+									printf("CARGA: Antorcha: x=%d, y=%d, dir=%c\n", x_2D, y_2D, direction_2D);
 								} else {
-									printf("CARGA: Advertencia - Direccion invalida '%c' en linea: %s\n", direction, line.c_str());
+									printf("CARGA: Advertencia - Direccion invalida '%c' en linea: %s\n", direction_2D, line.c_str());
 								}
 							}
 							break;
 						case 'k':
 							// Llave
 							Keys key;
-							key.x = x;
-							key.y = y;
+							key.x_2D = x_2D;
+							key.y_2D = y_2D;
 							ent.keys.push_back(key);
-							printf("CARGA: Llave: x=%d, y=%d\n", x, y);
+							printf("CARGA: Llave: x=%d, y=%d\n", x_2D, y_2D);
 							break;
 						case 'e':
 							Enemy enemy;
-							enemy.x = x;
-							enemy.y = y;
+							enemy.x_2D = x_2D;
+							enemy.y_2D = y_2D;
 							ent.enemy = enemy;
-							printf("CARGA: Enemigo: x=%d, y=%d\n", x, y);
+							printf("CARGA: Enemigo: x=%d, y=%d\n", x_2D, y_2D);
 							break;
 						case 'x':
 							Exit exit;
-							exit.x = x;
-							exit.y = y;
+							exit.x_2D = x_2D;
+							exit.y_2D = y_2D;
 							ent.exit = exit;
-							printf("CARGA: Salida: x=%d, y=%d\n", x, y);
+							printf("CARGA: Salida: x=%d, y=%d\n", x_2D, y_2D);
 							break;
 						default:
 							printf("CARGA: Advertencia - Tipo desconocido '%c' en linea: %s\n", type, line.c_str());
@@ -355,7 +368,7 @@ Entities load_entities_from_file(const char* filename, int maze_rows) {
 	}
 	
 	file.close();
-	printf("CARGA: Antorchas: %zu - Llaves: %zu - Enemigo: %d - Salida: %d\n", ent.torches.size(), ent.keys.size(), ent.enemy.x != -1, ent.exit.x != -1);
+	printf("CARGA: Antorchas: %zu - Llaves: %zu - Enemigo: %d - Salida: %d\n", ent.torches.size(), ent.keys.size(), ent.enemy.x_2D != -1, ent.exit.x_2D != -1);
 	return ent;
 }
 
@@ -380,16 +393,22 @@ objeto crear_escena(){
 		return obj;
 	}
 
-	// Cargamos los datos de antorchas
-	entities = load_entities_from_file("bin/data/maze_map.txt", side_size);
-
 	// Cargamos el mapa en la clase Maze
 	maze->setMap(map, side_size);
+
+	// Tamaño de cada celda del mapa
+	float tile_size = maze->getTileSize(); 
+	// Centro del laberinto en coordenadas XZ
+	float maze_center_xz = (maze->getColumns() * tile_size) / 2.0f; // Simétrico en XZ
+
+	// Cargamos los datos de antorchas
+	entities = load_entities_from_file("bin/data/maze_map.txt", side_size, tile_size, maze_center_xz);
 
 	// Contamos cuantos cubos necesitamos
 	int wall_count = 0;
 	for (int i = 0; i < maze->getRows(); i++){
 		for(int j = 0; j < maze->getColumns(); j++){
+			// Si el valor es 1, es un muro y necesitamos un cubo
 			if (maze->getGrid(i, j) == 1){
 				wall_count++;
 			}
@@ -490,8 +509,6 @@ objeto crear_escena(){
 	int ui = 0;
 	int ni = 0;
 	int ti = 0;
-	float tile_size = maze->getTileSize(); // Tamaño de cada celda del mapa
-	float maze_center_xz = (maze->getColumns() * tile_size) / 2.0f; // Simétrico en XZ
 	for (int i = 0; i < maze->getRows(); i++){
 		for(int j = 0; j < maze->getColumns(); j++){
 			// Si hay muro en esta celda, creamos un cubo
@@ -879,7 +896,7 @@ void render_scene()
 	//Antorchas en las paredes
 	for(const Torch& t : entities.torches){
 		vec3 lightPos = lighting::compute_torch_light_pos(
-			t.x, t.y, t.direction, tile_size, maze_center_xz);
+			t.x_2D, t.y_2D, t.direction_2D, tile_size, maze_center_xz);
 		lighting::add(lightPos, torchColor);
 	}
 	
@@ -973,15 +990,10 @@ void render_scene()
 	const float torch_scale = 0.6f;
 
 	for(const Torch& t : entities.torches){
-		vec3 torch_pos = torch_module::compute_world_pos(
-			t.x, t.y, t.direction, tile_size, maze_center_xz
-		);
-		float rot_y = torch_module::compute_rotation(t.direction);
-
-		torch_module::draw(torch_pos,torch_scale, rot_y, P, V);
+		torch_module::draw(t.position, torch_scale, t.rot_y, P, V);
 
 		// La llama va por encima del torch + adelante (en la dirección del pasillo)
-		vec3 flame_pos = flame::compute_position(torch_pos, t.direction);
+		vec3 flame_pos = flame::compute_position(t.position, t.rot_y);
 		flame::draw(flame_pos, 2.0f, P, V);
 	}
 
