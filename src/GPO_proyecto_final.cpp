@@ -170,6 +170,9 @@ const char* fragment_prog = GLSL(
 
 		float specularPower = mix(32.0, 2.0, 1.0f);
 
+		float light_range = 6.0; // Rango máximo de la luz
+		float light_soft = 2.0; // Rango de suavizado al final del rango máximo
+
 		// Acumular contribución de cada antorcha
 		for(int i = 0; i < numLights; i++){
 			vec3 L = lightPositions[i] - FragPos;
@@ -184,8 +187,6 @@ const char* fragment_prog = GLSL(
 			float specular = pow(max(dot(V, R), 0.0), specularPower) * 0.045;
 
 			// Calculos relativos a la luz del personaje
-			float light_range = 6.0; // Rango máximo de la luz
-			float light_soft = 2.0; // Rango de suavizado al final del rango máximo
 			float light_cutoff = 1.0 - smoothstep(light_range - light_soft, light_range, light_dist); // Factor de atenuación basado en la distancia
 			float light_attenuation = light_cutoff / (1.0 + 0.2 * light_dist + 0.5 * light_dist * light_dist); // Atenuación
 
