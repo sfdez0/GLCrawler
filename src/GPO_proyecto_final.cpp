@@ -53,45 +53,45 @@ struct Torch {
 
 /**
  * Estructura para almacenar datos de llaves
- * @param x posición horizontal (columna)
- * @param y posición vertical (fila)
  */
 struct Keys {
+	// Coordenada "x" 2D en el mapa .txt
 	int x_2D;
+	// Coordenada "y" 2D en el mapa .txt
 	int y_2D;
 };
 
 /**
  * Estructura para almacenar datos de enemigos
- * @param x posición horizontal (columna)
- * @param y posición vertical (fila)
  */
 struct Enemy {
+	// Coordenada "x" 2D en el mapa .txt
 	int x_2D;
+	// Coordenada "y" 2D en el mapa .txt
 	int y_2D;
 };
 
 /**
  * Estructura para almacenar datos de la salida del laberinto
- * @param x posición horizontal (columna)
- * @param y posición vertical (fila)
  */
 struct Exit {
+	// Coordenada "x" 2D en el mapa .txt
 	int x_2D;
+	// Coordenada "y" 2D en el mapa .txt
 	int y_2D;
 };
 
 /**
  * Estructura para almacenar todas las entidades del juego (antorchas, llaves, enemigo, salida)
- * @param torches vector de antorchas
- * @param keys vector de llaves
- * @param enemy enemigo
- * @param exit salida del laberinto
  */
 struct Entities {
+	// Lista de antorchas
 	std::vector<Torch> torches;
+	// Lista de llaves
 	std::vector<Keys> keys;
+	// Enemigo
 	Enemy enemy = {-1, -1};
+	// Salida del laberinto
 	Exit exit = {-1, -1};
 };
 
@@ -308,61 +308,59 @@ Entities load_entities_from_file(const char* filename, int maze_rows, float tile
 		int x_2D, y_2D; // Coordenadas 2D en el mapa .txt
 		char direction_2D; // Dirección 2D en el mapa .txt (u, d, r, l)
 		
-		// Leemos según el formato esperado
-		if (iss >> type && iss >> comma && comma == ',') {
-			if (iss >> x_2D && iss >> comma && comma == ',') {
-				if (iss >> y_2D) {
-					// Diferenciamos según el tipo de entidad
-					switch (type){
-						case 'a':
-							// Antorcha
-							if (iss >> comma && comma == ',' && iss >> direction_2D) {
-								// Validamos la dirección
-								if (direction_2D == 'u' || direction_2D == 'd' || direction_2D == 'r' || direction_2D == 'l') {
-									// Creamos el objeto y lo agregamos a la lista
-									Torch torch;
-									torch.position = torch_module::compute_world_pos(
-										x_2D, y_2D, direction_2D, tile_size, maze_center_xz
-									);
-									torch.rot_y = torch_module::compute_rotation(direction_2D);
-									torch.x_2D = x_2D;
-									torch.y_2D = y_2D;
-									torch.direction_2D = direction_2D;
+		// Leemos según el formato esperado (tipo, x, y, dir)
+		if (iss >> type && iss >> comma && comma == ',' // tipo,
+			&& iss >> x_2D && iss >> comma && comma == ',' // x,
+			&& iss >> y_2D) { // y
+			// Diferenciamos según el tipo de entidad
+			switch (type){
+				case 'a':
+					// Antorcha
+					if (iss >> comma && comma == ',' && iss >> direction_2D) {
+						// Validamos la dirección
+						if (direction_2D == 'u' || direction_2D == 'd' || direction_2D == 'r' || direction_2D == 'l') {
+							// Creamos el objeto y lo agregamos a la lista
+							Torch torch;
+							torch.position = torch_module::compute_world_pos(
+								x_2D, y_2D, direction_2D, tile_size, maze_center_xz
+							);
+							torch.rot_y = torch_module::compute_rotation(direction_2D);
+							torch.x_2D = x_2D;
+							torch.y_2D = y_2D;
+							torch.direction_2D = direction_2D;
 
-									ent.torches.push_back(torch);
-									printf("CARGA: Antorcha: x=%d, y=%d, dir=%c\n", x_2D, y_2D, direction_2D);
-								} else {
-									printf("CARGA: Advertencia - Direccion invalida '%c' en linea: %s\n", direction_2D, line.c_str());
-								}
-							}
-							break;
-						case 'k':
-							// Llave
-							Keys key;
-							key.x_2D = x_2D;
-							key.y_2D = y_2D;
-							ent.keys.push_back(key);
-							printf("CARGA: Llave: x=%d, y=%d\n", x_2D, y_2D);
-							break;
-						case 'e':
-							Enemy enemy;
-							enemy.x_2D = x_2D;
-							enemy.y_2D = y_2D;
-							ent.enemy = enemy;
-							printf("CARGA: Enemigo: x=%d, y=%d\n", x_2D, y_2D);
-							break;
-						case 'x':
-							Exit exit;
-							exit.x_2D = x_2D;
-							exit.y_2D = y_2D;
-							ent.exit = exit;
-							printf("CARGA: Salida: x=%d, y=%d\n", x_2D, y_2D);
-							break;
-						default:
-							printf("CARGA: Advertencia - Tipo desconocido '%c' en linea: %s\n", type, line.c_str());
-							break;
+							ent.torches.push_back(torch);
+							printf("CARGA: Antorcha: x=%d, y=%d, dir=%c\n", x_2D, y_2D, direction_2D);
+						} else {
+							printf("CARGA: Advertencia - Direccion invalida '%c' en linea: %s\n", direction_2D, line.c_str());
+						}
 					}
-				}
+					break;
+				case 'k':
+					// Llave
+					Keys key;
+					key.x_2D = x_2D;
+					key.y_2D = y_2D;
+					ent.keys.push_back(key);
+					printf("CARGA: Llave: x=%d, y=%d\n", x_2D, y_2D);
+					break;
+				case 'e':
+					Enemy enemy;
+					enemy.x_2D = x_2D;
+					enemy.y_2D = y_2D;
+					ent.enemy = enemy;
+					printf("CARGA: Enemigo: x=%d, y=%d\n", x_2D, y_2D);
+					break;
+				case 'x':
+					Exit exit;
+					exit.x_2D = x_2D;
+					exit.y_2D = y_2D;
+					ent.exit = exit;
+					printf("CARGA: Salida: x=%d, y=%d\n", x_2D, y_2D);
+					break;
+				default:
+					printf("CARGA: Advertencia - Tipo desconocido '%c' en linea: %s\n", type, line.c_str());
+					break;
 			}
 		}
 	}
