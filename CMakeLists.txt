@@ -6,7 +6,10 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Debug)
 endif(NOT CMAKE_BUILD_TYPE)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -fPIC ")
+# Establecemos el estándar de C++ 17 para todo el proyecto
+set(CMAKE_CXX_STANDARD 17) # C++17
+set(CMAKE_CXX_STANDARD_REQUIRED ON) # Obligatorio
+set(CMAKE_CXX_EXTENSIONS OFF) # Oficial sin extensiones específicas del compilador
 
 if( "${PROJECT_SOURCE_DIR}" STREQUAL "${PROJECT_BINARY_DIR}" )
  message( FATAL "no in source building allowed." )
@@ -30,7 +33,11 @@ add_subdirectory(libs/glfw EXCLUDE_FROM_ALL)
 add_subdirectory(libs/glad )
 
 set(ASSIMP_NO_EXPORT ON)
-set(ASSIMP_BUILD_ZLIB OFF) #Configuración mac
+if (WIN32)
+	set(ASSIMP_BUILD_ZLIB ON)
+else ()
+	set(ASSIMP_BUILD_ZLIB OFF) # Configuración mac
+endif()
 set(ASSIMP_BUILD_TESTS OFF)
 set(ASSIMP_INSTALL OFF)
 set(ASSIMP_BUILD_ASSIMP_VIEW OFF)
@@ -54,12 +61,18 @@ set(GPO_SOURCE_FILES include/stb/stb_image.h
 					 include/flame.h
 					 include/lighting.h
 					 include/torch_module.h
+					 include/Particle.h
+					 include/ParticleEmitter.h
+					 include/ParticleSystem.h
 					 src/GPO_proyecto_final.cpp
 					 src/GPO_aux.cpp
 					 src/maze.cpp
 					 src/flame.cpp
 					 src/lighting.cpp
 					 src/torch_module.cpp
+					 src/Particle.cpp
+					 src/ParticleEmitter.cpp
+					 src/ParticleSystem.cpp
 					 tests/assimp/GPO_assimp_aux.h
 					 tests/assimp/GPO_assimp_aux.cpp
 					 libs/imgui/imgui.cpp
