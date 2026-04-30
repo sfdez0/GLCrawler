@@ -17,6 +17,7 @@
 #include <flame.h>
 #include <lighting.h>
 #include <torch_module.h>
+#include <ParticleEmitter.h>
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////     VARIABLES GLOBALES 
@@ -29,6 +30,9 @@ const char* prac = "OpenGL (GpO)";
 
 // Puntero a la clase Maze que representa el mapa del laberinto
 Maze* maze; 
+
+// Sistema de partículas global, encargado de gestionar todas las partículas del juego
+ParticleSystem particleSystem;
 
 // Variables de estado del jugador
 int player_health = 100;
@@ -49,6 +53,19 @@ struct Torch {
 	int y_2D;
 	// Dirección en 2D (u, d, r, l) en el mapa .txt
 	char direction_2D;
+	// Controlador de partículas para las pavesas del fuego
+	ParticleEmitter particleEmitter;
+
+	/**
+	 * Constructor para inicializar la antorcha
+	 */
+	Torch(vec3 position, float rot_y, int x_2D, int y_2D, char direction_2D) 
+		: position(position), rot_y(rot_y), x_2D(x_2D), y_2D(y_2D), direction_2D(direction_2D) {
+
+		// Configuramos el emisor de partículas para la antorcha
+		particleEmitter.typeToEmit = ParticleType::Fire;
+		particleEmitter.spawnRate = 100.0f; // 10 partículas por segundo
+	}
 };
 
 /**
@@ -320,14 +337,13 @@ Entities load_entities_from_file(const char* filename, int maze_rows, float tile
 						// Validamos la dirección
 						if (direction_2D == 'u' || direction_2D == 'd' || direction_2D == 'r' || direction_2D == 'l') {
 							// Creamos el objeto y lo agregamos a la lista
-							Torch torch;
-							torch.position = torch_module::compute_world_pos(
-								x_2D, y_2D, direction_2D, tile_size, maze_center_xz
+							Torch torch = Torch(
+								torch_module::compute_world_pos(x_2D, y_2D, direction_2D, tile_size, maze_center_xz),
+								torch_module::compute_rotation(direction_2D),
+								x_2D,
+								y_2D,
+								direction_2D
 							);
-							torch.rot_y = torch_module::compute_rotation(direction_2D);
-							torch.x_2D = x_2D;
-							torch.y_2D = y_2D;
-							torch.direction_2D = direction_2D;
 
 							ent.torches.push_back(torch);
 							printf("CARGA: Antorcha: x=%d, y=%d, dir=%c\n", x_2D, y_2D, direction_2D);
@@ -697,9 +713,10 @@ void init_scene() {
 	GLuint tex_ao = cargar_textura("bin/data/brick_ao.jpg", GL_TEXTURE4);
 	transfer_int("aoMap", 3);
 
-	// Cargar ANTORCHAS
-	torch_module::init();
-	flame::init();
+	// Inicializamos módulos
+	torch_module::init(); // Antorchas
+	flame::init(); // Llamas de las antorchas
+	particleSystem.init(); // Sistema de partículas
 
 	// Volver al programa principal
 	glUseProgram(prog);
@@ -986,16 +1003,22 @@ void render_scene()
 
 	// Dibujamos antorchas según entidades cargadas del mapa
 	const float torch_scale = 0.6f;
-
-	for(const Torch& t : entities.torches){
+	for(Torch& t : entities.torches){
 		torch_module::draw(t.position, torch_scale, t.rot_y, P, V);
 
 		// La llama va por encima del torch + adelante (en la dirección del pasillo)
 		vec3 flame_pos = flame::compute_position(t.position, t.rot_y);
 		flame::draw(flame_pos, 2.0f, P, V);
+
+		// Actualizamos las partículas de la antorcha
+		t.particleEmitter.update(delta_time, flame_pos, particleSystem);
 	}
 
-	glUseProgram(prog);
+	// Actualizamos sistema de partículas
+	particleSystem.update((float)delta_time);
+
+	// Dibujamos partículas
+	particleSystem.render(P, V);
 
 	// Obtenemos referencia a ImGuiIO
 	ImGuiIO& io = ImGui::GetIO();
