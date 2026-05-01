@@ -32,8 +32,9 @@ Se pueden lanzar haciendo click sobre ellos o desde el entorno de programacion.
 - [x] Carga de laberintos (mapas) desde archivos .txt con formato estándar
 - [x] Iluminación modo "niebla oscura" (solo se iluminan las areas cercanas a alguna luz)
 - [x] Antorchas con fuego e iluminación propia
-- [ ] Aleatorización de la intensidad de las luces
-- [ ] Sistema de partículas
+- [x] Aleatorización de la intensidad de las luces
+- [x] Sistema de partículas
+- [ ] Aleatorización de cambios en las texturas (paredes rotas, paredes sucias...)
 - [ ] IA Enemiga
 - [ ] Mecánica de recoger piedras preciosas/llaves
 - [ ] Mecánica de fin (salir del laberinto o morir)
