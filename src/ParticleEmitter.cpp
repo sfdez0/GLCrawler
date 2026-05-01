@@ -7,11 +7,6 @@
  * @param pSystem referencia al sistema de partículas para emitir las nuevas partículas generadas
  */
 void ParticleEmitter::update(float deltaTime, vec3 currentPos, ParticleSystem& pSystem) {
-    if (pSystem.get_free_particles() <= 0) { 
-        printf("ERROR: Se ha alcanzado el límite máximo de partículas.\n");
-        return;
-    }
-
     if (spawnRate <= 0.0f) {
         return;
     }

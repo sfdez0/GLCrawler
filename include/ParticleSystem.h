@@ -8,19 +8,14 @@
  */
 class ParticleSystem {
 private:
-    // Lista de partículas activas en el sistema
-    std::vector<Particle> particles;
-
     // Número máximo de partículas
-    const int maxParticles = 1024;
+    const int maxParticles = 2048;
+
+    float global_time = 0.0f;
+
+    size_t head = 0;
 
 public:
-    /**
-     * Función que devuelve el número actual de partículas activas en el sistema
-     * @return número de partículas activas
-     */
-    size_t get_free_particles() const;
-
     /**
      * Función para inicializar el sistema de partículas
      */

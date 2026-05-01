@@ -8,48 +8,71 @@ GLuint vbo_particles = 0;
 #define GLSL(src) "#version 330 core\n" #src
 
 const char* vertex_particles = GLSL(
-    layout(location = 0) in vec3 pos;
-    layout(location = 1) in vec4 color;
-    layout(location = 2) in float size;
+    layout(location = 0) in vec3 initial_pos;
+    layout(location = 1) in vec3 initial_vel;
+    layout(location = 2) in vec4 color;
+    layout(location = 3) in float size;
+    layout(location = 4) in float birth_time;
+    layout(location = 5) in float max_life;
+    layout(location = 6) in float type;
 
     out vec4 vColor;
+    out float vAlphaModifier; // Para hacer transparente la partícula según su edad
 
     uniform mat4 VP;
+    uniform float current_time;
+    uniform vec3 gravity;
 
     void main() {
-        gl_Position = VP * vec4(pos, 1.0);
+        // Calculamos la edad de la partícula
+        float age = current_time - birth_time;
 
-        // Ajustamos tamaño según la distancia a la cámara
-        float new_size = size / gl_Position.w;
+        // Si la particula ha muerto, la mandamos lejos para que sea descartada por Culling
+        if (age < 0.0 || age > max_life) {
+            gl_Position = vec4(-1000.0, -1000.0, -1000.0, 1.0);
+            gl_PointSize = 0.0;
+            return;
+        }
 
-        gl_PointSize = new_size;
+        switch (int(type)) {
+            case 0: // Fuego
+                // Calculamos la posición actual de la partícula usando cinemática (pos = pos0 + vel0 * t + 1/2 * a * t^2)
+                vec3 current_pos = initial_pos + (initial_vel * age) + (0.5 * gravity * age * age);
+
+                // Calculamos la reducción de tamaño de la partícula
+                gl_Position = VP * vec4(current_pos, 1.0);
+                gl_PointSize = size / gl_Position.w;
+                break;
+            default:
+                break;
+        }
+
+        // Pasamos el color
         vColor = color;
+
+        // Calculamos el alpha para difuminar la partícula al envejecer
+        vAlphaModifier = 1.0 - (age / max_life);
     }
 );
 
 const char* fragment_particles = GLSL(
     in vec4 vColor;
+    in float vAlphaModifier;
     out vec4 outputColor;
 
     void main() {
         vec2 p = gl_PointCoord * 2.0 - 1.0;
         float d = length(p);
-        float alpha = 1.0 - smoothstep(0.7, 1.0, d);
-        if (alpha <= 0.01) discard;
-        outputColor = vec4(vColor.rgb, vColor.a * alpha);
+        float circle_alpha = 1.0 - smoothstep(0.7, 1.0, d);
+        if (circle_alpha <= 0.01) discard;
+        
+        // Multiplicamos el alpha del color por el factor alpha de la partícula
+        outputColor = vec4(vColor.rgb, vColor.a * circle_alpha * vAlphaModifier);
     }
 );
 
 // Gravedad para partículas de fuego
 const vec3 fire_gravity = vec3(0.0f, -0.45f, 0.0f);
-
-/**
- * Función que devuelve el número actual de partículas activas en el sistema
- * @return número de partículas activas
- */
-size_t ParticleSystem::get_free_particles() const {
-    return maxParticles - particles.size();
-}
 
 /**
  * Función para inicializar el sistema de partículas
@@ -79,21 +102,35 @@ void ParticleSystem::init() {
     glGenBuffers(1, &vbo_particles);
     glBindBuffer(GL_ARRAY_BUFFER, vbo_particles);
 
-    // Espacio para el máximo número de partículas, cada una con 8 floats (pos(3) + color(4) + size(1))
-    const int size = 8;
-    glBufferData(GL_ARRAY_BUFFER, maxParticles * size * sizeof(float), nullptr, GL_DYNAMIC_DRAW);
+    // Tamaño de cada particula (pos(3) + vel(3) + color(4) + size(1) + birth(1) + max_life(1) + type(1))
+    const int size = 14 * sizeof(float);
+    
+    // Reservamos espacio para el límite máximo de partículas (vacío al principio)
+    glBufferData(GL_ARRAY_BUFFER, maxParticles * size, nullptr, GL_DYNAMIC_DRAW);
 
+    // initial_pos (0)
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, size * sizeof(float), (void*)0);
-
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, size, (void*)0);
+    // initial_vel (1)
     glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, size * sizeof(float), (void*)(3 * sizeof(float)));
-
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, size, (void*)(3 * sizeof(float)));
+    // color (2)
     glEnableVertexAttribArray(2);
-    glVertexAttribPointer(2, 1, GL_FLOAT, GL_FALSE, size * sizeof(float), (void*)((3 + 4) * sizeof(float)));
+    glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, size, (void*)(6 * sizeof(float)));
+    // size (3)
+    glEnableVertexAttribArray(3);
+    glVertexAttribPointer(3, 1, GL_FLOAT, GL_FALSE, size, (void*)(10 * sizeof(float)));
+    // birth_time (4)
+    glEnableVertexAttribArray(4);
+    glVertexAttribPointer(4, 1, GL_FLOAT, GL_FALSE, size, (void*)(11 * sizeof(float)));
+    // max_life (5)
+    glEnableVertexAttribArray(5);
+    glVertexAttribPointer(5, 1, GL_FLOAT, GL_FALSE, size, (void*)(12 * sizeof(float)));
+    // type (6)
+    glEnableVertexAttribArray(6);
+    glVertexAttribPointer(6, 1, GL_FLOAT, GL_FALSE, size, (void*)(13 * sizeof(float)));
 
     glBindVertexArray(0);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
 /**
@@ -101,7 +138,28 @@ void ParticleSystem::init() {
  * @param newParticle partícula a emitir
  */
 void ParticleSystem::emit(Particle newParticle) {
-    particles.push_back(newParticle);
+    // Creamos el paquete de 14 floats de esta única partícula
+    float data[14] = {
+        newParticle.pos.x, newParticle.pos.y, newParticle.pos.z,
+        newParticle.vel.x, newParticle.vel.y, newParticle.vel.z,
+        newParticle.color.r, newParticle.color.g, newParticle.color.b, newParticle.color.a,
+        newParticle.size,
+        global_time, // Hora de spawn
+        newParticle.max_life,
+        (float)newParticle.type
+    };
+
+    glBindBuffer(GL_ARRAY_BUFFER, vbo_particles);
+    
+    // Calculamos dónde escribir usando head como índice
+    GLintptr offset = head * 14 * sizeof(float);
+    
+    // Subimos los datos de la partícula
+    glBufferSubData(GL_ARRAY_BUFFER, offset, sizeof(data), data);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+    // Movemos el índice (si llega al máximo vuelve al inicio, sobreescribiendo partículas viejas)
+    head = (head + 1) % maxParticles;
 }
 
 /**
@@ -109,59 +167,7 @@ void ParticleSystem::emit(Particle newParticle) {
  * @param deltaTime tiempo transcurrido desde la última actualización (en segundos)
  */
 void ParticleSystem::update(float deltaTime) {
-    // Iteramos por todas las partículas del sistema
-    for (auto& p : particles) {
-        // Reducimos la vida de la partícula
-        p.life -= deltaTime;
-        
-        // Aplicamos diferentes comportamientos según el tipo de partícula
-        switch (p.type) {
-            case ParticleType::Fire:
-                p.vel += fire_gravity * deltaTime;
-                p.pos += p.vel * deltaTime;
-                break;
-            default:
-                break;
-        }
-    }
-
-    // Eliminamos las partículas que han muerto
-    particles.erase(
-        // Posición de inicio de borrado (todas las partículas vivas están antes)
-        std::remove_if(particles.begin(), particles.end(), [](const Particle& p) { return p.life <= 0.0f; }),
-
-        // Posición de fin de borrado (todas las partículas muertas están después)
-        particles.end()
-    );
-}
-
-/**
- * Función para subir los datos de las partículas al buffer
- */
-void ParticleSystem::upload_particles() {
-    const int size = 8; // pos(3) + color(4) + size(1)
-    std::vector<float> data;
-    data.reserve(particles.size() * size);
-
-    // Por cada particula, añadimos su posición, color y tamaño al vector de datos
-    for (const Particle& p : particles) {
-        float alpha = p.life / p.max_life;
-        data.push_back(p.pos.x);
-        data.push_back(p.pos.y);
-        data.push_back(p.pos.z);
-        data.push_back(p.color.r);
-        data.push_back(p.color.g);
-        data.push_back(p.color.b);
-        data.push_back(p.color.a * alpha); // Alpha modulado por la vida restante
-        data.push_back(p.size);
-    }
-
-    // Subimos los datos al buffer
-    glBindBuffer(GL_ARRAY_BUFFER, vbo_particles);
-    if (!data.empty()) {
-        glBufferSubData(GL_ARRAY_BUFFER, 0, data.size() * sizeof(float), data.data());
-    }
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    global_time += deltaTime;
 }
 
 /**
@@ -170,28 +176,24 @@ void ParticleSystem::upload_particles() {
  * @param V matriz de vista
  */
 void ParticleSystem::render(mat4 P, mat4 V) {
-    if (particles.empty()) {
-        return;
-    }
-
-    // Subimos los datos de partículas al buffer
-    upload_particles();
-
-    // Dibujamos las partículas
     glUseProgram(prog_particles);
-    transfer_mat4("VP", P * V);
 
-    // Blend para transparencia y sin depth buffer
+    // Enviamos VP, tiempo y gravedad
+    transfer_mat4("VP", P * V);
+    transfer_float("current_time", global_time);
+    transfer_vec3("gravity", fire_gravity);
+
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glDepthMask(GL_FALSE);
     glEnable(GL_PROGRAM_POINT_SIZE);
 
     glBindVertexArray(vao_particles);
-    glDrawArrays(GL_POINTS, 0, (GLsizei)particles.size());
+    // Mandamos a dibujar el buffer COMPLETO siempre.
+    // El shader se encargará de esconder las que estén muertas.
+    glDrawArrays(GL_POINTS, 0, maxParticles);
     glBindVertexArray(0);
 
-    // Restauramos estado
     glDepthMask(GL_TRUE);
     glDisable(GL_PROGRAM_POINT_SIZE);
     glDisable(GL_BLEND);
