@@ -53,18 +53,22 @@ struct Torch {
 	int y_2D;
 	// Dirección en 2D (u, d, r, l) en el mapa .txt
 	char direction_2D;
+	// Posición de la luz de la antorcha en el mundo 3D
+	vec3 lightPos;
+	// Posición de la llama en el mundo 3D
+	vec3 flamePos;
 	// Controlador de partículas para las pavesas del fuego
 	ParticleEmitter particleEmitter;
 
 	/**
 	 * Constructor para inicializar la antorcha
 	 */
-	Torch(vec3 position, float rot_y, int x_2D, int y_2D, char direction_2D) 
-		: position(position), rot_y(rot_y), x_2D(x_2D), y_2D(y_2D), direction_2D(direction_2D) {
+	Torch(vec3 position, float rot_y, int x_2D, int y_2D, char direction_2D, vec3 lightPos, vec3 flamePos)
+		: position(position), rot_y(rot_y), x_2D(x_2D), y_2D(y_2D), direction_2D(direction_2D), lightPos(lightPos), flamePos(flamePos) {
 
 		// Configuramos el emisor de partículas para la antorcha
 		particleEmitter.typeToEmit = ParticleType::Fire;
-		particleEmitter.spawnRate = 100.0f; // 10 partículas por segundo
+		particleEmitter.spawnRate = 100.0f; // 100 partículas por segundo
 	}
 };
 
@@ -337,12 +341,19 @@ Entities load_entities_from_file(const char* filename, int maze_rows, float tile
 						// Validamos la dirección
 						if (direction_2D == 'u' || direction_2D == 'd' || direction_2D == 'r' || direction_2D == 'l') {
 							// Creamos el objeto y lo agregamos a la lista
+							vec3 position = torch_module::compute_world_pos(x_2D, y_2D, direction_2D, tile_size, maze_center_xz);
+							float rot_y = torch_module::compute_rotation(direction_2D);
+							vec3 lightPos = lighting::compute_torch_light_pos(x_2D, y_2D, direction_2D, tile_size, maze_center_xz);
+							vec3 flamePos = flame::compute_position(position, rot_y);
+
 							Torch torch = Torch(
-								torch_module::compute_world_pos(x_2D, y_2D, direction_2D, tile_size, maze_center_xz),
-								torch_module::compute_rotation(direction_2D),
+								position,
+								rot_y,
 								x_2D,
 								y_2D,
-								direction_2D
+								direction_2D,
+								lightPos,
+								flamePos
 							);
 
 							ent.torches.push_back(torch);
@@ -902,17 +913,15 @@ void render_scene()
 	lighting::clear();
 
 	vec3 torchColor = vec3(1.0f, 0.7f, 0.35f);
-	float tile_size = maze-> getTileSize();
+	float tile_size = maze->getTileSize();
 	float maze_center_xz = (maze->getColumns() * tile_size) / 2.0f;
 
 	// Luz del jugador
 	lighting::add(cam_pos + vec3(0.0f, -0.5f, 0.0f), torchColor);
 	
-	//Antorchas en las paredes
+	// Luz de las antorchas
 	for(const Torch& t : entities.torches){
-		vec3 lightPos = lighting::compute_torch_light_pos(
-			t.x_2D, t.y_2D, t.direction_2D, tile_size, maze_center_xz);
-		lighting::add(lightPos, torchColor);
+		lighting::add(t.lightPos, torchColor);
 	}
 	
 	// Calculamos delta time para movimiento suave (e independiente de FPS)
@@ -1007,11 +1016,10 @@ void render_scene()
 		torch_module::draw(t.position, torch_scale, t.rot_y, P, V);
 
 		// La llama va por encima del torch + adelante (en la dirección del pasillo)
-		vec3 flame_pos = flame::compute_position(t.position, t.rot_y);
-		flame::draw(flame_pos, 2.0f, P, V);
+		flame::draw(t.flamePos, 2.0f, P, V);
 
 		// Actualizamos las partículas de la antorcha
-		t.particleEmitter.update(delta_time, flame_pos, particleSystem);
+		t.particleEmitter.update(delta_time, t.flamePos, particleSystem);
 	}
 
 	// Actualizamos sistema de partículas
