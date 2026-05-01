@@ -1034,7 +1034,7 @@ void render_scene()
 	// Dibujamos antorchas según entidades cargadas del mapa
 	const float torch_scale = 0.6f;
 	for(Torch& t : entities.torches){
-		torch_module::draw(t.position, torch_scale, t.rot_y, P, V);
+		torch_module::draw(t.position, torch_scale, t.rot_y, P, V, cam_pos);
 
 		// La llama va por encima del torch + adelante (en la dirección del pasillo)
 		flame::draw(t.flamePos, 2.0f, P, V);

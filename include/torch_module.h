@@ -7,7 +7,7 @@ namespace torch_module {
     void init();
 
     // Dibujar una antorcha en la posición y orientación dadas
-    void draw(vec3 pos, float scale, float rot_y, mat4 P, mat4 V);
+    void draw(vec3 pos, float scale, float rot_y, mat4 P, mat4 V, vec3 cam_pos);
 
     // Calcular la posición de una antorcha de pared
     vec3 compute_world_pos(int x, int y, char direction,

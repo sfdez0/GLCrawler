@@ -98,7 +98,7 @@ void init() {
 	glDeleteShader(FragmentFlameID);
 
     glUseProgram(prog_flame);
-    tex_flame = cargar_textura_rgba("data/flame.png", GL_TEXTURE3);
+    tex_flame = cargar_textura_rgba("bin/data/flame.png", GL_TEXTURE3);
     transfer_int("flameTex", 3);
     transfer_int("totalFrames", 4);
 
