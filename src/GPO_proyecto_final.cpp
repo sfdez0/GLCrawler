@@ -827,7 +827,6 @@ void init_scene() {
 	escena_cubica = crear_escena(default_map_path, default_side_size);  // Crear el escenario del laberinto con todas las paredes
 
 	init_render_resources();
-	printf("DEBUG: numero de antorchas = %zu\n", entities.torches.size());
 }
 
 
@@ -855,6 +854,11 @@ double last_frame_time = 0.0; // Tiempo del último frame
 // Variables de ImGui
 bool show_stats = true;
 bool show_settings = false;
+bool show_loading = false; // Indica si se debe mostrar el mensaje de carga
+bool pending_reset = false; // Indica si hay un reset pendiente
+bool loading_frame_shown = false; // Indica si ya se mostró el mensaje de carga
+const char* pending_map_path = nullptr;
+int pending_side_size = 0;
 
 // Variables para controlar la intensidad de los mapas de texturas
 float displacement_intensity = 1.0f;  // Intensidad del desplazamiento (0.0 - 2.0)
@@ -887,8 +891,6 @@ void reset_scene(const char* map_path, int side_size) {
 	cam_up = vec3(0.0f, 1.0f, 0.0f);
 	cam_yaw = 0.0f;
 	cam_pitch = 0.0f;
-	last_mouse_x = 0.0;
-	last_mouse_y = 0.0;
 	last_frame_time = glfwGetTime();
 
 	escena_cubica = crear_escena(map_path, side_size);
@@ -924,7 +926,41 @@ void renderSettingsPanel() {
     
 	// Si se muestra el panel, renderizamos su contenido (sin movimiento ni colapso)
     if (show_settings && ImGui::Begin("Configuración", &show_settings, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse)) {
-        // Slider para el FOV (Field of View)
+		if (ImGui::Button("Mapa 1", ImVec2(90, 0))) {
+			show_settings = false;
+			show_loading = true;
+			loading_frame_shown = false;
+
+			pending_reset = true;
+			pending_map_path = "bin/data/maze_map.txt";
+			pending_side_size = 15;
+        }
+		ImGui::SameLine(); // En horizontal al botón de aceptar
+		if (ImGui::Button("Mapa 2", ImVec2(90, 0))) {
+			show_settings = false;
+			show_loading = true;
+			loading_frame_shown = false;
+
+			pending_reset = true;
+			pending_map_path = "bin/data/maze_map_2.txt";
+			pending_side_size = 15;
+        }
+		ImGui::SameLine(); // En horizontal al botón de aceptar
+		if (ImGui::Button("Mapa 3", ImVec2(90, 0))) {
+			show_settings = false;
+			show_loading = true;
+			loading_frame_shown = false;
+
+			pending_reset = true;
+			pending_map_path = "bin/data/maze_map_3.txt";
+			pending_side_size = 15;
+        }
+
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+
+		// Slider para el FOV (Field of View)
         ImGui::SliderInt("FOV (Campo de Visión)", &cam_fov, 55, 100);
         
         ImGui::Spacing();
@@ -1021,6 +1057,21 @@ void renderGameUI(ImGuiIO& io) {
 	if (show_settings){
 		renderSettingsPanel();
 	}
+
+	// Mensaje de carga centrado
+	if (show_loading) {
+		ImGui::SetNextWindowPos(ImVec2(ANCHO / 2.0f, ALTO / 2.0f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+		if (ImGui::Begin("Cargando", nullptr,
+			ImGuiWindowFlags_NoDecoration |
+			ImGuiWindowFlags_NoMove |
+			ImGuiWindowFlags_AlwaysAutoResize |
+			ImGuiWindowFlags_NoSavedSettings |
+			ImGuiWindowFlags_NoNav |
+			ImGuiWindowFlags_NoBackground)) {
+			ImGui::Text("cargando");
+			ImGui::End();
+		}
+	}
 }
 
 // Declaración adelantada de función
@@ -1035,6 +1086,22 @@ void render_scene()
 	// Evitamos procesar si la ventana está minimizada
 	if (ANCHO == 0 || ALTO == 0) {
 		return;
+	}
+
+	// Si hay reset pendiente y ya se ha mostrado el mensaje de carga, hacemos el reset
+	if (pending_reset && loading_frame_shown) {
+		reset_scene(pending_map_path, pending_side_size);
+
+		show_loading = false;
+		loading_frame_shown = false;
+
+		pending_reset = false;
+		pending_map_path = nullptr;
+		pending_side_size = 0;
+	}
+	else if (pending_reset && !loading_frame_shown) {
+		// Hay reset pendiente pero NO se ha mostrado mensaje de carga, esperamos a mostrarlo en el siguiente frame
+		loading_frame_shown = true;
 	}
 	
 	glClearColor(0.0f, 0.0f, 0.0f, 0.0f); // Especifica color para el fondo oscuro (RGB+alfa)
