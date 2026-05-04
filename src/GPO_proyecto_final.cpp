@@ -17,6 +17,7 @@
 #include <flame.h>
 #include <lighting.h>
 #include <torch_module.h>
+#include <key_module.h>
 #include <ParticleEmitter.h>
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -84,6 +85,18 @@ struct Keys {
 	int x_2D;
 	// Coordenada "y" 2D en el mapa .txt
 	int y_2D;
+	// Posición 3D en el mundo
+	vec3 position;
+	// Posición 3D de la luz dorada que acompaña a la llave
+	vec3 lightPos;
+	// Indica si la llave ya ha sido recogida por el jugador
+	bool collected;
+
+	/**
+	 * Constructor para inicializar la llave
+	 */
+	Keys(int x_2D, int y_2D, vec3 position, vec3 lightPos)
+		: x_2D(x_2D), y_2D(y_2D), position(position), lightPos(lightPos), collected(false) {}
 };
 
 /**
@@ -395,14 +408,16 @@ Entities load_entities_from_file(const char* filename, int maze_rows, float tile
 						}
 					}
 					break;
-				case 'k':
-					// Llave
-					Keys key;
-					key.x_2D = x_2D;
-					key.y_2D = y_2D;
+				case 'k': {
+					// Llave: calculamos la posición 3D y la posición de su luz
+					vec3 position = key_module::compute_world_pos(x_2D, y_2D, tile_size, maze_center_xz);
+					vec3 lightPos = key_module::compute_light_pos(position);
+					
+					Keys key(x_2D, y_2D, position, lightPos);
 					ent.keys.push_back(key);
 					printf("CARGA: Llave: x=%d, y=%d\n", x_2D, y_2D);
 					break;
+				}
 				case 'e':
 					Enemy enemy;
 					enemy.x_2D = x_2D;
@@ -806,6 +821,7 @@ void init_render_resources() {
 	// Inicializamos módulos
 	torch_module::init(); // Antorchas
 	flame::init(); // Llamas de las antorchas
+	key_module::init(); // Llaves
 	particleSystem.init(); // Sistema de partículas
 
 	// Volver al programa principal
@@ -1076,6 +1092,7 @@ void renderGameUI(ImGuiIO& io) {
 
 // Declaración adelantada de función
 bool can_move(vec3& new_pos);
+void check_key_pickup();
 
 /**
  * Función para renderizar la escena en cada frame
@@ -1111,6 +1128,12 @@ void render_scene()
 	lighting::clear();
 
 	vec3 torchColor = vec3(1.0f, 0.7f, 0.35f);
+
+	// Luz de las llaves
+	float keyT     = (float)glfwGetTime();
+	float keyPulse = 1.0f + 0.12f * sin(keyT * 0.9f) + 0.04f * sin(keyT * 2.6f);
+	vec3  keyColor = vec3(0.5f, 0.85f, 0.3f) * 1.8f * keyPulse;
+
 	float tile_size = maze->getTileSize();
 	float maze_center_xz = (maze->getColumns() * tile_size) / 2.0f;
 
@@ -1121,7 +1144,14 @@ void render_scene()
 	for(const Torch& t : entities.torches){
 		lighting::add(t.lightPos, torchColor);
 	}
-	
+
+	// Luz dorada de las llaves (solo si no han sido recogidas)
+	for(const Keys& k : entities.keys){
+		if (!k.collected) {
+			lighting::add(k.lightPos, keyColor);
+		}
+	}
+
 	// Calculamos delta time para movimiento suave (e independiente de FPS)
 	double current_time = glfwGetTime();
 	double delta_time = current_time - last_frame_time;
@@ -1180,6 +1210,8 @@ void render_scene()
 		}
 	}
 
+	check_key_pickup();
+
 	///////// Actualizacion matrices M, V, P  /////////	
 	mat4 P, V, M, T, R, S;
 
@@ -1219,6 +1251,13 @@ void render_scene()
 
 		// Actualizamos las partículas de la antorcha
 		t.particleEmitter.update(delta_time, t.flamePos, particleSystem);
+	}
+
+	// Dibujamos llaves según entidades cargadas del mapa
+	for(const Keys& k : entities.keys){
+		if (!k.collected) {
+			key_module::draw(k.position, 0.7f, (float)current_time, P, V, cam_pos);
+		}
 	}
 
 	// Actualizamos sistema de partículas
@@ -1325,6 +1364,27 @@ bool can_move(vec3& new_pos) {
 	return !maze->checkCollisionWithBoundingBoxes(new_pos, cam_radius);
 }
 
+/**
+ * Función para comprobar si el jugador está lo bastante cerca de alguna llave sin recoger
+ */
+void check_key_pickup() {
+    // Radio de recogida
+    const float pickup_radius = 1.2f;
+    const float pickup_radius_sq = pickup_radius * pickup_radius;
+
+    for (Keys& k : entities.keys) {
+        if (k.collected) continue;
+
+        float dx = cam_pos.x - k.position.x;
+        float dz = cam_pos.z - k.position.z;
+        float dist_sq = dx * dx + dz * dz;
+
+        if (dist_sq < pickup_radius_sq) {
+            k.collected = true;
+            player_keys++;
+        }
+    }
+}
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////     ASIGNACIÓN FUNCIONES CALLBACK
