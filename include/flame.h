@@ -5,6 +5,9 @@
 namespace flame {
     void init();
 
+    // Liberar recursos GPU
+    void shutdown();
+
     // Dibujar una llama animada (billboard) en la posición dada
     void draw(vec3 pos, float scale, mat4 P, mat4 V);
 

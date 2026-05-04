@@ -6,6 +6,7 @@ namespace flame {
 namespace {
     GLuint prog_flame = 0;
     GLuint flame_VAO = 0;
+    GLuint flame_VBO = 0;
     GLuint tex_flame = 0;
 
     #define GLSL(src) "#version 330 core\n" #src
@@ -67,9 +68,8 @@ namespace {
             -0.5f,  0.5f, 0.0f, 1.0f
         };
 
-        GLuint VBO;
-        glGenBuffers(1, &VBO);
-        glBindBuffer(GL_ARRAY_BUFFER, VBO);
+        glGenBuffers(1, &flame_VBO);
+        glBindBuffer(GL_ARRAY_BUFFER, flame_VBO);
         glBufferData(GL_ARRAY_BUFFER, sizeof(quad_data), quad_data, GL_STATIC_DRAW);
 
         glGenVertexArrays(1, &flame_VAO);
@@ -80,6 +80,7 @@ namespace {
         glEnableVertexAttribArray(1);
         glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
 
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
         glBindVertexArray(0);
     }
 } 
@@ -103,6 +104,28 @@ void init() {
     transfer_int("totalFrames", 4);
 
     crear_quad();
+}
+
+void shutdown() {
+    if (flame_VBO != 0) {
+        glDeleteBuffers(1, &flame_VBO);
+        flame_VBO = 0;
+    }
+
+    if (flame_VAO != 0) {
+        glDeleteVertexArrays(1, &flame_VAO);
+        flame_VAO = 0;
+    }
+
+    if (tex_flame != 0) {
+        glDeleteTextures(1, &tex_flame);
+        tex_flame = 0;
+    }
+
+    if (prog_flame != 0) {
+        glDeleteProgram(prog_flame);
+        prog_flame = 0;
+    }
 }
 
 void draw(vec3 pos, float scale, mat4 P, mat4 V) {
