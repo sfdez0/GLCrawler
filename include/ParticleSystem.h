@@ -20,6 +20,11 @@ public:
      * Función para inicializar el sistema de partículas
      */
     void init();
+
+    /**
+     * Libera recursos GPU del sistema de partículas
+     */
+    void shutdown();
     
     /**
      * Función para emitir una nueva partícula

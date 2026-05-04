@@ -134,6 +134,29 @@ void ParticleSystem::init() {
 }
 
 /**
+ * Función para liberar recursos GPU del sistema de partículas
+ */
+void ParticleSystem::shutdown() {
+    if (prog_particles != 0) {
+        glDeleteProgram(prog_particles);
+        prog_particles = 0;
+    }
+
+    if (vbo_particles != 0) {
+        glDeleteBuffers(1, &vbo_particles);
+        vbo_particles = 0;
+    }
+
+    if (vao_particles != 0) {
+        glDeleteVertexArrays(1, &vao_particles);
+        vao_particles = 0;
+    }
+
+    global_time = 0.0f;
+    head = 0;
+}
+
+/**
  * Función para emitir una nueva partícula
  * @param newParticle partícula a emitir
  */
