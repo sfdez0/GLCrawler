@@ -6,6 +6,9 @@ namespace torch_module {
     // Inicializar
     void init();
 
+    // Liberar recursos GPU
+    void shutdown();
+
     // Dibujar una antorcha en la posición y orientación dadas
     void draw(vec3 pos, float scale, float rot_y, mat4 P, mat4 V, vec3 cam_pos);
 

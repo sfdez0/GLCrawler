@@ -196,6 +196,56 @@ void init() {
     torch_model = cargar_modelo_assimp("bin/data/torch/torch.obj");
 }
 
+void shutdown() {
+    // Borrar programa
+    if (prog_torch != 0) {
+        glDeleteProgram(prog_torch);
+        prog_torch = 0;
+    }
+
+    // Borrar texturas de antorcha
+    if (mat_torch.base != 0) {
+        glDeleteTextures(1, &mat_torch.base); 
+        mat_torch.base = 0; 
+    }
+    if (mat_torch.normal != 0) {
+        glDeleteTextures(1, &mat_torch.normal);
+        mat_torch.normal = 0;
+    }
+    if (mat_torch.metallic != 0) {
+        glDeleteTextures(1, &mat_torch.metallic);
+        mat_torch.metallic = 0;
+    }
+    if (mat_torch.roughness != 0) {
+        glDeleteTextures(1, &mat_torch.roughness);
+        mat_torch.roughness = 0;
+    }
+
+    // Borrar texturas de hanger
+    if (mat_hanger.base != 0) {
+        glDeleteTextures(1, &mat_hanger.base);
+        mat_hanger.base = 0;
+    }
+    if (mat_hanger.normal != 0) {
+        glDeleteTextures(1, &mat_hanger.normal);
+        mat_hanger.normal = 0;
+    }
+    if (mat_hanger.metallic != 0) {
+        glDeleteTextures(1, &mat_hanger.metallic);
+        mat_hanger.metallic = 0;
+    }
+    if (mat_hanger.roughness != 0) {
+        glDeleteTextures(1, &mat_hanger.roughness);
+        mat_hanger.roughness = 0;
+    }
+
+    // Borrar modelo
+    if (torch_model.objs || torch_model.mats || torch_model.instIdx || torch_model.buffers) {
+        limpiar_escena(&torch_model);
+        torch_model = {};
+    }
+}
+
 void draw(vec3 pos, float scale, float rot_y, mat4 P, mat4 V, vec3 cam_pos) {
     glUseProgram(prog_torch);
 
