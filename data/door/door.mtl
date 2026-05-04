@@ -1,0 +1,15 @@
+# exported by https://3dviewer.net
+newmtl Door
+Ns 250.000000
+Ka 1.000000 1.000000 1.000000
+Kd 0.800000 0.800000 0.800000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 2
+map_Ka Door_noas_L_Door_AO.tga.png
+map_Kd Door_noas_L_Door_BaseColor.tga.png
+map_Bump Door_noas_L_Door_Normal.tga.png
+map_Ns Door_noas_L_Door_Roughness.tga.png
+refl Door_noas_L_Door_Metallic.tga.png

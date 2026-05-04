@@ -17,6 +17,7 @@
 #include <flame.h>
 #include <lighting.h>
 #include <torch_module.h>
+#include <door.h>
 #include <key_module.h>
 #include <ParticleEmitter.h>
 
@@ -117,6 +118,18 @@ struct Exit {
 	int x_2D;
 	// Coordenada "y" 2D en el mapa .txt
 	int y_2D;
+	// Dirección en 2D (u, d, r, l) en el mapa .txt
+	char direction_2D;
+	// Posición en el mundo 3D calculada a partir de x_2D, y_2D y direction_2D
+	vec3 position; 
+	// Rotación en el eje Y en el mundo 3D
+	float rot_y;
+
+	/**
+	 * Constructor para inicializar la salida
+	 */
+	Exit(vec3 position, float rot_y, int x_2D, int y_2D, char direction_2D)
+		: position(position), rot_y(rot_y), x_2D(x_2D), y_2D(y_2D), direction_2D(direction_2D) { }
 };
 
 /**
@@ -130,7 +143,7 @@ struct Entities {
 	// Enemigo
 	Enemy enemy = {-1, -1};
 	// Salida del laberinto
-	Exit exit = {-1, -1};
+	Exit exit = {vec3(-1.0f, -1.0f, -1.0f), 0.0f, -1, -1, 'n'};
 };
 
 // Estructura para almacenar las entidades del juego (antorchas, llaves, enemigo, salida)
@@ -426,11 +439,27 @@ Entities load_entities_from_file(const char* filename, int maze_rows, float tile
 					printf("CARGA: Enemigo: x=%d, y=%d\n", x_2D, y_2D);
 					break;
 				case 'x':
-					Exit exit;
-					exit.x_2D = x_2D;
-					exit.y_2D = y_2D;
-					ent.exit = exit;
-					printf("CARGA: Salida: x=%d, y=%d\n", x_2D, y_2D);
+					// Salida: calculamos la posición 3D y la rotación
+					if (iss >> comma && comma == ',' && iss >> direction_2D) {
+						// Validamos la dirección
+						if (direction_2D == 'u' || direction_2D == 'd' || direction_2D == 'r' || direction_2D == 'l') {
+							// Creamos el objeto y lo agregamos a la lista
+							vec3 position = door::compute_world_pos(x_2D, y_2D, direction_2D, tile_size, maze_center_xz);
+							float rot_y = door::compute_rotation(direction_2D);
+
+							Exit exit = Exit(
+								position,
+								rot_y,
+								x_2D,
+								y_2D,
+								direction_2D
+							);
+							ent.exit = exit;
+							printf("CARGA: Salida: x=%d, y=%d\n", x_2D, y_2D);
+						} else {
+							printf("CARGA: Advertencia - Direccion invalida '%c' en linea: %s\n", direction_2D, line.c_str());
+						}
+					}
 					break;
 				default:
 					printf("CARGA: Advertencia - Tipo desconocido '%c' en linea: %s\n", type, line.c_str());
@@ -471,7 +500,7 @@ objeto crear_escena(const char* map_path, int side_size){
 	// Centro del laberinto en coordenadas XZ
 	float maze_center_xz = (maze->getColumns() * tile_size) / 2.0f; // Simétrico en XZ
 
-	// Cargamos los datos de antorchas
+	// Cargamos todas las entidades (antorchas, llaves, enemigo, salida) desde el archivo .txt
 	entities = load_entities_from_file(map_path, side_size, tile_size, maze_center_xz);
 
 	// Contamos cuantos cubos necesitamos
@@ -754,6 +783,7 @@ void destroy_render_resources() {
 	particleSystem.shutdown();
 	torch_module::shutdown();
 	flame::shutdown();
+	door::shutdown();
 
 	if (tex_brick != 0) {
 		glDeleteTextures(1, &tex_brick);
@@ -820,6 +850,7 @@ void init_render_resources() {
 
 	// Inicializamos módulos
 	torch_module::init(); // Antorchas
+	door::init(); // Puerta de salida
 	flame::init(); // Llamas de las antorchas
 	key_module::init(); // Llaves
 	particleSystem.init(); // Sistema de partículas
@@ -1093,6 +1124,7 @@ void renderGameUI(ImGuiIO& io) {
 // Declaración adelantada de función
 bool can_move(vec3& new_pos);
 void check_key_pickup();
+void check_exit_condition(float delta_time);
 
 /**
  * Función para renderizar la escena en cada frame
@@ -1212,6 +1244,8 @@ void render_scene()
 
 	check_key_pickup();
 
+	check_exit_condition(delta_time);
+
 	///////// Actualizacion matrices M, V, P  /////////	
 	mat4 P, V, M, T, R, S;
 
@@ -1258,6 +1292,10 @@ void render_scene()
 		if (!k.collected) {
 			key_module::draw(k.position, 0.7f, (float)current_time, P, V, cam_pos);
 		}
+	}
+
+	if (&entities.exit) {
+		door::draw(entities.exit.position, 2.0f, entities.exit.rot_y, P, V, cam_pos);
 	}
 
 	// Actualizamos sistema de partículas
@@ -1384,6 +1422,29 @@ void check_key_pickup() {
             player_keys++;
         }
     }
+}
+
+/**
+ * Función para comprobar las condiciones de salida.
+ * Si porta las tres llaves pero está lejos, se activa el cambio de rotación de la puerta.
+ * Si porta las tres llaves y está cerca, se acaba el juego.
+ */
+void check_exit_condition(float delta_time) {
+	if (player_keys >= 3) {
+		if (&entities.exit.position) {
+			float dx = cam_pos.x - entities.exit.position.x;
+			float dz = cam_pos.z - entities.exit.position.z;
+			float dist_sq = dx * dx + dz * dz;
+
+			if (dist_sq < 1.0f) {
+				// TODO: Mensaje de fin?
+				printf("HAS GANADO\n");
+			}
+			else {
+				// TODO: Mover la puerta?
+			}
+		}	
+	}
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -74,6 +74,7 @@ set(GPO_SOURCE_FILES include/stb/stb_image.h
 					 src/ParticleEmitter.cpp
 					 src/ParticleSystem.cpp
 					 src/key_module.cpp
+					 src/door.cpp
 					 tests/assimp/GPO_assimp_aux.h
 					 tests/assimp/GPO_assimp_aux.cpp
 					 libs/imgui/imgui.cpp
