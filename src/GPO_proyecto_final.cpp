@@ -29,10 +29,14 @@ int ANCHO = 800, ALTO = 600;
 const char* prac = "OpenGL (GpO)"; 
 
 // Puntero a la clase Maze que representa el mapa del laberinto
-Maze* maze; 
+Maze* maze = nullptr; 
 
 // Sistema de partículas global, encargado de gestionar todas las partículas del juego
 ParticleSystem particleSystem;
+
+// Mapa por defecto
+const char* default_map_path = "bin/data/maze_map.txt";
+const int default_side_size = 15;
 
 // Variables de estado del jugador
 int player_health = 100;
@@ -250,8 +254,16 @@ const char* fragment_prog = GLSL(
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 GLFWwindow* window;
-GLuint prog;
-objeto escena_cubica; // Objeto para el escenario del laberinto
+GLuint prog = 0;
+GLuint tex_brick = 0;
+GLuint tex_normal = 0;
+GLuint tex_displacement = 0;
+GLuint tex_ao = 0;
+objeto escena_cubica;
+GLuint escena_vbo_pos = 0;
+GLuint escena_vbo_uv = 0;
+GLuint escena_vbo_norm = 0;
+GLuint escena_vbo_tan = 0;
 
 
 /**
@@ -422,17 +434,15 @@ Entities load_entities_from_file(const char* filename, int maze_rows, float tile
  * Genera cubos para cada pared del mapa 2D
  * @return objeto con VAO y número de vértices para renderizar el escenario del laberinto
  */
-objeto crear_escena(){
+objeto crear_escena(const char* map_path, int side_size){
 	objeto obj;
 	GLuint VAO;
-	GLuint buffer_pos, buffer_uv;
 	
-	// Creamos el laberinto con 15 filas, 15 columnas y tamaño de celda 4.0 unidades
-	int side_size = 15;
+	// Creamos el laberinto con filas/columnas y tamaño de celda 4.0 unidades
 	maze = new Maze(side_size, 4.0f);
 
 	// Cargamos el mapa desde el archivo .txt (1 = muro, 0 = vacío)
-	int* map = load_maze_from_file("bin/data/maze_map.txt", side_size);
+	int* map = load_maze_from_file(map_path, side_size);
 	if (map == nullptr) {
 		printf("CARGA: Error - No se pudo cargar el mapa del laberinto\n");
 		return obj;
@@ -447,7 +457,7 @@ objeto crear_escena(){
 	float maze_center_xz = (maze->getColumns() * tile_size) / 2.0f; // Simétrico en XZ
 
 	// Cargamos los datos de antorchas
-	entities = load_entities_from_file("bin/data/maze_map.txt", side_size, tile_size, maze_center_xz);
+	entities = load_entities_from_file(map_path, side_size, tile_size, maze_center_xz);
 
 	// Contamos cuantos cubos necesitamos
 	int wall_count = 0;
@@ -627,26 +637,24 @@ objeto crear_escena(){
 	}
 
 	// Mandamos posiciones en un VBO
-	glGenBuffers(1, &buffer_pos); 
-	glBindBuffer(GL_ARRAY_BUFFER, buffer_pos);
+	glGenBuffers(1, &escena_vbo_pos); 
+	glBindBuffer(GL_ARRAY_BUFFER, escena_vbo_pos);
 	glBufferData(GL_ARRAY_BUFFER, total_vertices * 3 * sizeof(GLfloat), pos_data, GL_STATIC_DRAW);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 	// Mandamos colores en otro VBO
-	glGenBuffers(1, &buffer_uv); 
-	glBindBuffer(GL_ARRAY_BUFFER, buffer_uv);
+	glGenBuffers(1, &escena_vbo_uv); 
+	glBindBuffer(GL_ARRAY_BUFFER, escena_vbo_uv);
 	glBufferData(GL_ARRAY_BUFFER, total_vertices * 2 * sizeof(GLfloat), uv_data, GL_STATIC_DRAW);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-	GLuint buffer_norm;
-	glGenBuffers(1, &buffer_norm); 
-	glBindBuffer(GL_ARRAY_BUFFER, buffer_norm);
+	glGenBuffers(1, &escena_vbo_norm); 
+	glBindBuffer(GL_ARRAY_BUFFER, escena_vbo_norm);
 	glBufferData(GL_ARRAY_BUFFER, total_vertices * 3 * sizeof(GLfloat), normal_data, GL_STATIC_DRAW);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-	GLuint buffer_tan;
-	glGenBuffers(1, &buffer_tan); 
-	glBindBuffer(GL_ARRAY_BUFFER, buffer_tan);
+	glGenBuffers(1, &escena_vbo_tan); 
+	glBindBuffer(GL_ARRAY_BUFFER, escena_vbo_tan);
 	glBufferData(GL_ARRAY_BUFFER, total_vertices * 3 * sizeof(GLfloat), tangent_data, GL_STATIC_DRAW);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 
@@ -655,23 +663,23 @@ objeto crear_escena(){
 	glBindVertexArray(VAO);
 
 	// Indicamos donde hallar datos de posiciones
-	glBindBuffer(GL_ARRAY_BUFFER, buffer_pos);
+	glBindBuffer(GL_ARRAY_BUFFER, escena_vbo_pos);
 	glEnableVertexAttribArray(0);
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), 0);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 	// Indicamos donde hallar datos de colores
-	glBindBuffer(GL_ARRAY_BUFFER, buffer_uv);
+	glBindBuffer(GL_ARRAY_BUFFER, escena_vbo_uv);
 	glEnableVertexAttribArray(1);
 	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), 0);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-	glBindBuffer(GL_ARRAY_BUFFER, buffer_norm);
+	glBindBuffer(GL_ARRAY_BUFFER, escena_vbo_norm);
 	glEnableVertexAttribArray(2);
 	glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), 0);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-	glBindBuffer(GL_ARRAY_BUFFER, buffer_tan);
+	glBindBuffer(GL_ARRAY_BUFFER, escena_vbo_tan);
 	glEnableVertexAttribArray(3);
 	glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), 0);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -693,22 +701,73 @@ objeto crear_escena(){
 }
 
 /**
- * Función para inicializar la escena
- * Prepara los datos de los objetos a dibujar, los envía a la GPU
- * Compila los programas a ejecutar en la tarjeta gráfica: vertex shader, fragment shader
- * Configura opciones generales de render de OpenGL
+ * Función para liberar buffers de GPU del escenario actual
  */
-void init_scene() {
-	int width, height;
-    glfwGetFramebufferSize(window, &width, &height);
-    glViewport(0, 0, width, height); 
-    
-	escena_cubica = crear_escena();  // Crear el escenario del laberinto con todas las paredes
+void destroy_scene_gpu() {
+	if (escena_cubica.VAO != 0) {
+		glDeleteVertexArrays(1, &escena_cubica.VAO);
+		escena_cubica.VAO = 0;
+	}
 
-	// Habilitamos test de profundidad para renderizar correctamente las caras
+	escena_cubica.Nv = 0;
+
+	if (escena_vbo_pos != 0) {
+		glDeleteBuffers(1, &escena_vbo_pos);
+		escena_vbo_pos = 0;
+	}
+
+	if (escena_vbo_uv != 0) {
+		glDeleteBuffers(1, &escena_vbo_uv);
+		escena_vbo_uv = 0;
+	}
+
+	if (escena_vbo_norm != 0) {
+		glDeleteBuffers(1, &escena_vbo_norm);
+		escena_vbo_norm = 0;
+	}
+
+	if (escena_vbo_tan != 0) {
+		glDeleteBuffers(1, &escena_vbo_tan);
+		escena_vbo_tan = 0;
+	}
+}
+
+/**
+ * Función para liberar recursos de renderizado (programas y texturas)
+ */
+void destroy_render_resources() {
+	particleSystem.shutdown();
+	torch_module::shutdown();
+	flame::shutdown();
+
+	if (tex_brick != 0) {
+		glDeleteTextures(1, &tex_brick);
+		tex_brick = 0;
+	}
+	if (tex_normal != 0) {
+		glDeleteTextures(1, &tex_normal);
+		tex_normal = 0;
+	}
+	if (tex_displacement != 0) {
+		glDeleteTextures(1, &tex_displacement);
+		tex_displacement = 0;
+	}
+	if (tex_ao != 0) {
+		glDeleteTextures(1, &tex_ao);
+		tex_ao = 0;
+	}
+
+	if (prog != 0) {
+		glDeleteProgram(prog);
+		prog = 0;
+	}
+}
+
+/**
+ * Función para inicializar recursos de renderizado
+ */
+void init_render_resources() {
 	glEnable(GL_DEPTH_TEST);
-
-	// Mandamos programas a GPU, compilar y crear programa en GPU
 
 	// Compilar Shaders
 	GLuint VertexShaderID = compilar_shader(vertex_prog, GL_VERTEX_SHADER);
@@ -732,16 +791,16 @@ void init_scene() {
 
 	// Indicamos que programa vamos a usar 
 	glUseProgram(prog);
-	GLuint tex_brick = cargar_textura("bin/data/brick.jpg", GL_TEXTURE0);
+	tex_brick = cargar_textura("bin/data/brick.jpg", GL_TEXTURE0);
 	transfer_int("tex", 0);
 
-	GLuint tex_normal = cargar_textura("bin/data/brick_n.jpg", GL_TEXTURE1);
+	tex_normal = cargar_textura("bin/data/brick_n.jpg", GL_TEXTURE1);
 	transfer_int("normalMap", 1);
 
-	GLuint tex_displacement = cargar_textura("bin/data/brick_d.jpg", GL_TEXTURE3);
+	tex_displacement = cargar_textura("bin/data/brick_d.jpg", GL_TEXTURE3);
 	transfer_int("displacementMap", 2);
 
-	GLuint tex_ao = cargar_textura("bin/data/brick_ao.jpg", GL_TEXTURE4);
+	tex_ao = cargar_textura("bin/data/brick_ao.jpg", GL_TEXTURE4);
 	transfer_int("aoMap", 3);
 
 	// Inicializamos módulos
@@ -751,6 +810,23 @@ void init_scene() {
 
 	// Volver al programa principal
 	glUseProgram(prog);
+}
+
+
+/**
+ * Función para inicializar la escena
+ * Prepara los datos de los objetos a dibujar, los envía a la GPU
+ * Compila los programas a ejecutar en la tarjeta gráfica: vertex shader, fragment shader
+ * Configura opciones generales de render de OpenGL
+ */
+void init_scene() {
+	int width, height;
+    glfwGetFramebufferSize(window, &width, &height);
+    glViewport(0, 0, width, height); 
+    
+	escena_cubica = crear_escena(default_map_path, default_side_size);  // Crear el escenario del laberinto con todas las paredes
+
+	init_render_resources();
 	printf("DEBUG: numero de antorchas = %zu\n", entities.torches.size());
 }
 
@@ -783,6 +859,41 @@ bool show_settings = false;
 // Variables para controlar la intensidad de los mapas de texturas
 float displacement_intensity = 1.0f;  // Intensidad del desplazamiento (0.0 - 2.0)
 float ao_intensity = 1.0f;  // Intensidad del ambient occlusion (0.0 - 2.0)
+
+/**
+ * Función para reiniciar por completo la escena y cargar un nuevo mapa
+ */
+void reset_scene(const char* map_path, int side_size) {
+	destroy_scene_gpu();
+	destroy_render_resources();
+
+	if (maze != nullptr) {
+		delete maze;
+		maze = nullptr;
+	}
+
+	entities = Entities();
+	
+	for (int i = 0; i < 7; i++) {
+		keys_pressed[i] = false;
+	}
+
+	player_health = 100;
+	player_mana = 50;
+	player_keys = 0;
+
+	cam_pos = vec3(-26.0f, 3.0f, -26.0f);
+	cam_target = vec3(0.0f, 0.0f, 1.0f);
+	cam_up = vec3(0.0f, 1.0f, 0.0f);
+	cam_yaw = 0.0f;
+	cam_pitch = 0.0f;
+	last_mouse_x = 0.0;
+	last_mouse_y = 0.0;
+	last_frame_time = glfwGetTime();
+
+	escena_cubica = crear_escena(map_path, side_size);
+	init_render_resources();
+}
 
 /**
  * Función para inicializar ImGui
