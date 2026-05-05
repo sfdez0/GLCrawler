@@ -43,6 +43,21 @@ const char* vertex_particles = GLSL(
                 gl_Position = VP * vec4(current_pos, 1.0);
                 gl_PointSize = size / gl_Position.w;
                 break;
+            case 2: // Llave
+                // Gravedad casi nula con leve flotación hacia arriba
+                vec3 pickup_gravity = vec3(0.0, 0.4, 0.0);
+
+                // Aplicamos un amortiguamiento exponencial para que frenan rápido
+                float damp = exp(-1.2 * age);
+                current_pos = initial_pos + (initial_vel * age * damp) 
+                                        + (0.5 * pickup_gravity * age * age);
+
+                gl_Position = VP * vec4(current_pos, 1.0);
+
+                // Reducimos el tamaño progresivamente
+                float shrink = 1.0 - (age / max_life) * 0.85;
+                gl_PointSize = size * shrink / gl_Position.w;
+                break;
             default:
                 break;
         }

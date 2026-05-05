@@ -19,3 +19,36 @@ Particle Particle::CreateFire(vec3 pos){
     p.type = ParticleType::Fire;
     return p;
 }
+
+/**
+ * Crea una partícula de "destello" para el efecto de recogida de llave
+ */
+Particle Particle::CreatePickup(vec3 pos){
+    Particle p;
+    p.pos = pos;
+
+    // Generamos una dirección esférica aleatoria con ligero sesgo hacia arriba
+    float theta = randf(0.0f, 6.2831853f); // ángulo horizontal
+    float phi = randf(-0.3f, 1.2f); // ángulo vertical sesgado hacia arriba
+    float speed = randf(1.5f, 3.5f); // velocidad inicial alta
+
+    p.vel = vec3(
+        cos(phi) * cos(theta) * speed,
+        sin(phi) * speed,
+        cos(phi) * sin(theta) * speed
+    );
+
+    p.max_life = randf(0.7f, 1.3f); // Vida aleatorio
+    p.life = p.max_life;
+    p.size = randf(6.0f, 12.0f); // Tamaño aleatorio
+
+    // Color verde-dorado
+    p.color = vec4(
+        randf(0.6f, 1.0f), // R
+        randf(0.85f, 1.0f), // G
+        randf(0.2f, 0.5f), // B
+        1.0f
+    );
+    p.type = ParticleType::Pickup;
+    return p;
+}

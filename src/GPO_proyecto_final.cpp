@@ -1406,7 +1406,7 @@ bool can_move(vec3& new_pos) {
  * Función para comprobar si el jugador está lo bastante cerca de alguna llave sin recoger
  */
 void check_key_pickup() {
-    // Radio de recogida
+    // Radio de recogida　
     const float pickup_radius = 1.2f;
     const float pickup_radius_sq = pickup_radius * pickup_radius;
 
@@ -1420,6 +1420,13 @@ void check_key_pickup() {
         if (dist_sq < pickup_radius_sq) {
             k.collected = true;
             player_keys++;
+
+			// Burst de partículas en la posición visible de la llave
+            vec3 burst_pos = key_module::compute_light_pos(k.position);
+            const int BURST_COUNT = 300;
+            for (int i = 0; i < BURST_COUNT; i++) {
+                particleSystem.emit(Particle::CreatePickup(burst_pos));
+            }
         }
     }
 }
