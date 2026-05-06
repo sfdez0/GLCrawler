@@ -22,10 +22,10 @@ namespace {
 
     // Enlazar 4 texturas a sus unidades GLSL
     void bind_material(const MatTextures& m) {
-        glActiveTexture(GL_TEXTURE5); glBindTexture(GL_TEXTURE_2D, m.base);
-        glActiveTexture(GL_TEXTURE6); glBindTexture(GL_TEXTURE_2D, m.normal);
-        glActiveTexture(GL_TEXTURE7); glBindTexture(GL_TEXTURE_2D, m.metallic);
-        glActiveTexture(GL_TEXTURE8); glBindTexture(GL_TEXTURE_2D, m.roughness);
+        glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, m.base);
+        glActiveTexture(GL_TEXTURE1); glBindTexture(GL_TEXTURE_2D, m.normal);
+        glActiveTexture(GL_TEXTURE2); glBindTexture(GL_TEXTURE_2D, m.metallic);
+        glActiveTexture(GL_TEXTURE3); glBindTexture(GL_TEXTURE_2D, m.roughness);
     }
 
     #define GLSL(src) "#version 330 core\n" #src
@@ -176,21 +176,21 @@ void init() {
     glUseProgram(prog_torch);
 
     // Carga de los 4 mapas por material
-    mat_torch.base = cargar_textura_rgba("bin/data/torch/torch_lp_Torch_BaseColor.png", GL_TEXTURE5);
-    mat_torch.normal = cargar_textura_rgba("bin/data/torch/torch_lp_Torch_Normal.png",    GL_TEXTURE6);
-    mat_torch.metallic = cargar_textura_rgba("bin/data/torch/torch_lp_Torch_Metallic.png",  GL_TEXTURE7);
-    mat_torch.roughness = cargar_textura_rgba("bin/data/torch/torch_lp_Torch_Roughness.png", GL_TEXTURE8);
+    mat_torch.base = cargar_textura_rgba("bin/data/torch/torch_lp_Torch_BaseColor.png", GL_TEXTURE0);
+    mat_torch.normal = cargar_textura_rgba("bin/data/torch/torch_lp_Torch_Normal.png",    GL_TEXTURE1);
+    mat_torch.metallic = cargar_textura_rgba("bin/data/torch/torch_lp_Torch_Metallic.png",  GL_TEXTURE2);
+    mat_torch.roughness = cargar_textura_rgba("bin/data/torch/torch_lp_Torch_Roughness.png", GL_TEXTURE3);
 
-    mat_hanger.base = cargar_textura_rgba("bin/data/torch/torch_hanger_lp_torch_hanger_BaseColor.png", GL_TEXTURE5);
-    mat_hanger.normal = cargar_textura_rgba("bin/data/torch/torch_hanger_lp_torch_hanger_Normal.png",    GL_TEXTURE6);
-    mat_hanger.metallic = cargar_textura_rgba("bin/data/torch/torch_hanger_lp_torch_hanger_Metallic.png",  GL_TEXTURE7);
-    mat_hanger.roughness = cargar_textura_rgba("bin/data/torch/torch_hanger_lp_torch_hanger_Roughness.png", GL_TEXTURE8);
+    mat_hanger.base = cargar_textura_rgba("bin/data/torch/torch_hanger_lp_torch_hanger_BaseColor.png", GL_TEXTURE0);
+    mat_hanger.normal = cargar_textura_rgba("bin/data/torch/torch_hanger_lp_torch_hanger_Normal.png",    GL_TEXTURE1);
+    mat_hanger.metallic = cargar_textura_rgba("bin/data/torch/torch_hanger_lp_torch_hanger_Metallic.png",  GL_TEXTURE2);
+    mat_hanger.roughness = cargar_textura_rgba("bin/data/torch/torch_hanger_lp_torch_hanger_Roughness.png", GL_TEXTURE3);
 
     // Mapeo samplers
-    transfer_int("baseColorMap", 5);
-    transfer_int("normalMap", 6);
-    transfer_int("metallicMap", 7);
-    transfer_int("roughnessMap", 8);
+    transfer_int("baseColorMap", 0);
+    transfer_int("normalMap", 1);
+    transfer_int("metallicMap", 2);
+    transfer_int("roughnessMap", 3);
     transfer_float("normalStrength", 1.5f);
 
     torch_model = cargar_modelo_assimp("bin/data/torch/torch.obj");

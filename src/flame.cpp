@@ -99,8 +99,8 @@ void init() {
 	glDeleteShader(FragmentFlameID);
 
     glUseProgram(prog_flame);
-    tex_flame = cargar_textura_rgba("bin/data/flame.png", GL_TEXTURE3);
-    transfer_int("flameTex", 3);
+    tex_flame = cargar_textura_rgba("bin/data/flame.png", GL_TEXTURE0);
+    transfer_int("flameTex", 0);
     transfer_int("totalFrames", 4);
 
     crear_quad();
@@ -130,6 +130,9 @@ void shutdown() {
 
 void draw(vec3 pos, float scale, mat4 P, mat4 V) {
     glUseProgram(prog_flame);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, tex_flame);
 
     float t = (float)glfwGetTime();
     int frameIdx = ((int)(t * 10.0f)) % 4;

@@ -914,6 +914,15 @@ void init_render_resources() {
 	glUseProgram(prog);
 }
 
+/**
+ * Función para enlazar las texturas de la escena
+ */
+static void bind_scene_textures() {
+	glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, tex_brick);
+	glActiveTexture(GL_TEXTURE1); glBindTexture(GL_TEXTURE_2D, tex_normal);
+	glActiveTexture(GL_TEXTURE2); glBindTexture(GL_TEXTURE_2D, tex_displacement);
+	glActiveTexture(GL_TEXTURE3); glBindTexture(GL_TEXTURE_2D, tex_ao);
+}
 
 /**
  * Función para inicializar la escena
@@ -1433,6 +1442,7 @@ void render_scene()
 	lighting::upload_to_shader(prog);
 
 	// Dibujamos el cubo del escenario
+	bind_scene_textures();
 	glBindVertexArray(escena_cubica.VAO);             // Activamos VAO del cubo
 	glDrawArrays(GL_TRIANGLES, 0, escena_cubica.Nv);  // Dibujamos todos los triangulos del cubo
 	glBindVertexArray(0);                             // Desconectamos VAO

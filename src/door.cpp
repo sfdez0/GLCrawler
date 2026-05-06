@@ -21,11 +21,11 @@ namespace door {
 
         // Enlazar 4 texturas a sus unidades GLSL
         void bind_material(const MatTextures& m) {
-            glActiveTexture(GL_TEXTURE9); glBindTexture(GL_TEXTURE_2D, m.base);
-            glActiveTexture(GL_TEXTURE10); glBindTexture(GL_TEXTURE_2D, m.normal);
-            glActiveTexture(GL_TEXTURE11); glBindTexture(GL_TEXTURE_2D, m.metallic);
-            glActiveTexture(GL_TEXTURE12); glBindTexture(GL_TEXTURE_2D, m.roughness);
-            glActiveTexture(GL_TEXTURE13); glBindTexture(GL_TEXTURE_2D, m.ao);
+            glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, m.base);
+            glActiveTexture(GL_TEXTURE1); glBindTexture(GL_TEXTURE_2D, m.normal);
+            glActiveTexture(GL_TEXTURE2); glBindTexture(GL_TEXTURE_2D, m.metallic);
+            glActiveTexture(GL_TEXTURE3); glBindTexture(GL_TEXTURE_2D, m.roughness);
+            glActiveTexture(GL_TEXTURE4); glBindTexture(GL_TEXTURE_2D, m.ao);
         }
 
         #define GLSL(src) "#version 330 core\n" #src
@@ -185,18 +185,18 @@ namespace door {
         glUseProgram(prog_door);
 
         // Carga de los 5 mapas por material
-        mat_door.base = cargar_textura_rgba("bin/data/door/Door_noas_L_Door_BaseColor.tga.png", GL_TEXTURE9);
-        mat_door.normal = cargar_textura_rgba("bin/data/door/Door_noas_L_Door_Normal.tga.png",    GL_TEXTURE10);
-        mat_door.metallic = cargar_textura_rgba("bin/data/door/Door_noas_L_Door_Metallic.tga.png",  GL_TEXTURE11);
-        mat_door.roughness = cargar_textura_rgba("bin/data/door/Door_noas_L_Door_Roughness.tga.png", GL_TEXTURE12);
-        mat_door.ao = cargar_textura_rgba("bin/data/door/Door_noas_L_Door_AO.tga.png", GL_TEXTURE13);
+        mat_door.base = cargar_textura_rgba("bin/data/door/Door_noas_L_Door_BaseColor.tga.png", GL_TEXTURE0);
+        mat_door.normal = cargar_textura_rgba("bin/data/door/Door_noas_L_Door_Normal.tga.png",    GL_TEXTURE1);
+        mat_door.metallic = cargar_textura_rgba("bin/data/door/Door_noas_L_Door_Metallic.tga.png",  GL_TEXTURE2);
+        mat_door.roughness = cargar_textura_rgba("bin/data/door/Door_noas_L_Door_Roughness.tga.png", GL_TEXTURE3);
+        mat_door.ao = cargar_textura_rgba("bin/data/door/Door_noas_L_Door_AO.tga.png", GL_TEXTURE4);
 
         // Mapeo samplers
-        transfer_int("baseColorMap", 9);
-        transfer_int("normalMap", 10);
-        transfer_int("metallicMap", 11);
-        transfer_int("roughnessMap", 12);
-        transfer_int("aoMap", 13);
+        transfer_int("baseColorMap", 0);
+        transfer_int("normalMap", 1);
+        transfer_int("metallicMap", 2);
+        transfer_int("roughnessMap", 3);
+        transfer_int("aoMap", 4);
         transfer_float("normalStrength", 1.5f);
 
         door_model = cargar_modelo_assimp("bin/data/door/door.obj");

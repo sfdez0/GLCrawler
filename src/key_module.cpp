@@ -24,10 +24,10 @@ namespace {
 
     // Vincula las 4 texturas del material a sus unidades de textura.
     void bind_material(const MatTextures& m) {
-        glActiveTexture(GL_TEXTURE5); glBindTexture(GL_TEXTURE_2D, m.base);
-        glActiveTexture(GL_TEXTURE6); glBindTexture(GL_TEXTURE_2D, m.normal);
-        glActiveTexture(GL_TEXTURE7); glBindTexture(GL_TEXTURE_2D, m.metallic);
-        glActiveTexture(GL_TEXTURE8); glBindTexture(GL_TEXTURE_2D, m.ao);
+        glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, m.base);
+        glActiveTexture(GL_TEXTURE1); glBindTexture(GL_TEXTURE_2D, m.normal);
+        glActiveTexture(GL_TEXTURE2); glBindTexture(GL_TEXTURE_2D, m.metallic);
+        glActiveTexture(GL_TEXTURE3); glBindTexture(GL_TEXTURE_2D, m.ao);
     }
 
     #define GLSL(src) "#version 330 core\n" #src
@@ -190,16 +190,16 @@ namespace {
         glUseProgram(prog_key);
 
         // Carga de las 4 texturas del material en sus unidades correspondientes
-        mat_key.base = cargar_textura_rgba("bin/data/key/key_color.png", GL_TEXTURE5);
-        mat_key.normal = cargar_textura_rgba("bin/data/key/key_nmap.png", GL_TEXTURE6);
-        mat_key.metallic = cargar_textura_rgba("bin/data/key/key_metalness.png", GL_TEXTURE7);
-        mat_key.ao = cargar_textura_rgba("bin/data/key/key_ao.png", GL_TEXTURE8);
+        mat_key.base = cargar_textura_rgba("bin/data/key/key_color.png", GL_TEXTURE0);
+        mat_key.normal = cargar_textura_rgba("bin/data/key/key_nmap.png", GL_TEXTURE1);
+        mat_key.metallic = cargar_textura_rgba("bin/data/key/key_metalness.png", GL_TEXTURE2);
+        mat_key.ao = cargar_textura_rgba("bin/data/key/key_ao.png", GL_TEXTURE3);
 
         // Indicamos al shader qué unidad de textura corresponde a cada sampler.
-        transfer_int("baseColorMap", 5);
-        transfer_int("normalMap", 6);
-        transfer_int("metallicMap", 7);
-        transfer_int("aoMap", 8);
+        transfer_int("baseColorMap", 0);
+        transfer_int("normalMap", 1);
+        transfer_int("metallicMap", 2);
+        transfer_int("aoMap", 3);
         transfer_float("normalStrength", 1.5f);
 
         // Carga del modelo 3D. assimp parsea el .obj y devuelve los VAOs/VBOs
