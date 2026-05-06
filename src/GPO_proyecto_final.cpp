@@ -20,6 +20,8 @@
 #include <door.h>
 #include <key_module.h>
 #include <ParticleEmitter.h>
+#include <pathfinding.h>
+
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////     VARIABLES GLOBALES 
@@ -32,6 +34,9 @@ const char* prac = "OpenGL (GpO)";
 
 // Puntero a la clase Maze que representa el mapa del laberinto
 Maze* maze = nullptr; 
+
+// Modulo del pathfinder 
+PathfindingModule* enemyPathfinder = nullptr;
 
 // Sistema de partículas global, encargado de gestionar todas las partículas del juego
 ParticleSystem particleSystem;
@@ -113,6 +118,20 @@ struct Enemy {
 	int x_2D;
 	// Coordenada "y" 2D en el mapa .txt
 	int y_2D;
+	// Posición 3D en el mundo
+	vec3 position;
+	// Rotación en el eje Y en el mundo 3D
+	float rot_y;
+	// Camino actual hacia el objetivo
+	std::vector<vec3> path;
+	// Siguiente waypoint a seguir
+	size_t pathIndex;
+
+	/**
+	 * Constructor para inicializar el enemigo
+	 */
+	Enemy (int x_2D, int y_2D, vec3 position, float rot_y)
+		: x_2D(x_2D), y_2D(y_2D), position(position), rot_y(rot_y), pathIndex(0) { }
 };
 
 /**
@@ -146,7 +165,7 @@ struct Entities {
 	// Lista de llaves
 	std::vector<Keys> keys;
 	// Enemigo
-	Enemy enemy = {-1, -1};
+	Enemy enemy = {-1, -1, vec3(-1.0f, -1.0f, -1.0f), 0.0f};
 	// Salida del laberinto
 	Exit exit = {vec3(-1.0f, -1.0f, -1.0f), 0.0f, -1, -1, 'n'};
 };
@@ -448,9 +467,14 @@ Entities load_entities_from_file(const char* filename, int maze_rows, float tile
 					}
 					enemy_loaded = true;
 
+					// Calculamos la posición 3D
+					position = torch_module::compute_world_pos(x_2D, y_2D, 'u', tile_size, maze_center_xz);
+					
 					// Establecemos los datos del enemigo
 					ent.enemy.x_2D = x_2D;
 					ent.enemy.y_2D = y_2D;
+					ent.enemy.position = position;
+					ent.enemy.rot_y = 0.0f;
 					printf("CARGA: Enemigo: x=%d, y=%d\n", x_2D, y_2D);
 					break;
 				case 'x':
@@ -510,6 +534,10 @@ objeto crear_escena(const char* map_path, int side_size){
 		printf("CARGA: Error - No se pudo cargar el mapa del laberinto\n");
 		return obj;
 	}
+	
+	// Creamos el módulo de pathfinding del enemigo
+	enemyPathfinder = new PathfindingModule(side_size, 4.0f);
+	enemyPathfinder->setMazeData(map);
 
 	// Cargamos el mapa en la clase Maze
 	maze->setMap(map, side_size);
@@ -1144,6 +1172,7 @@ void renderGameUI(ImGuiIO& io) {
 bool can_move(vec3& new_pos);
 void check_key_pickup();
 void check_exit_condition(float delta_time);
+void update_enemy(float delta_time);
 
 /**
  * Función para renderizar la escena en cada frame
@@ -1320,6 +1349,9 @@ void render_scene()
 		door::draw(entities.exit.position, 2.0f, entities.exit.rot_y, P, V, cam_pos);
 	}
 
+	// Actualizamos enemigo
+	update_enemy(delta_time);
+
 	// Actualizamos sistema de partículas
 	particleSystem.update((float)delta_time);
 
@@ -1473,6 +1505,36 @@ void check_exit_condition(float delta_time) {
 				// TODO: Mover la puerta?
 			}
 		}	
+	}
+}
+
+/**
+ * Función para actualizar la posición del enemigo cada frame siguiendo una ruta calculada con A* hacia la posición del jugador
+ */
+void update_enemy(float delta_time) {
+	// Si no hay ruta, o se ha llegado al final de la actual, calculamos una nueva ruta hacia el jugador
+	if (entities.enemy.path.empty() || entities.enemy.pathIndex >= entities.enemy.path.size()) {
+		entities.enemy.path = enemyPathfinder->findPath(entities.enemy.position.x, entities.enemy.position.z, cam_pos.x, cam_pos.z);
+		entities.enemy.pathIndex = 0;
+	}
+
+	// Si hay una ruta, intentamos avanzar hacia el siguiente waypoint
+	if (!entities.enemy.path.empty() && entities.enemy.pathIndex < entities.enemy.path.size()) {
+		const vec3& waypoint = entities.enemy.path[entities.enemy.pathIndex];
+		vec3 delta = waypoint - entities.enemy.position;
+		float distance = glm::length(delta);
+		float enemySpeed = 1.5f;
+
+		// Diferenciamos la distancia al waypoint
+		if (distance < 0.05f) {
+			// Si estamos cerca, avanzamos al siguiente waypoint
+			entities.enemy.position = waypoint;
+			entities.enemy.pathIndex++;
+		} else {
+			// Si estamos lejos, continuamos avanzando hacia el waypoint actual
+			vec3 direction = glm::normalize(delta);
+			entities.enemy.position += direction * enemySpeed * (float)delta_time;
+		}
 	}
 }
 
