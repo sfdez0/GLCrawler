@@ -49,4 +49,7 @@ public:
      * @param V matriz de vista
      */
     void render(mat4 P, mat4 V);
+
+    // Posición del icono de llaves
+    glm::vec2 pickup_target_ndc = glm::vec2(0.81f, 0.90f);
 };

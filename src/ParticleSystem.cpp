@@ -22,6 +22,7 @@ const char* vertex_particles = GLSL(
     uniform mat4 VP;
     uniform float current_time;
     uniform vec3 gravity;
+    uniform vec2 est_target_ndc;
 
     void main() {
         // Calculamos la edad de la partícula
@@ -44,20 +45,51 @@ const char* vertex_particles = GLSL(
                 gl_PointSize = size / gl_Position.w;
                 break;
             case 1: // Recogida de Llave
-                // Gravedad casi nula con leve flotación hacia arriba
+            {
+                // Establecemos el final de la explosión y el inicio del vuelo al HUD
+                float T1 = 0.30 * max_life;
+
                 vec3 pickup_gravity = vec3(0.0, 0.4, 0.0);
 
-                // Aplicamos un amortiguamiento exponencial para que frenan rápido
-                float damp = exp(-1.2 * age);
-                current_pos = initial_pos + (initial_vel * age * damp) 
-                                        + (0.5 * pickup_gravity * age * age);
+                float burst_age = min(age, T1);
+                float damp = exp(-1.2 * burst_age);
+                vec3 burst_pos = initial_pos
+                                + initial_vel * burst_age * damp
+                                + 0.5 * pickup_gravity * burst_age * burst_age;
 
-                gl_Position = VP * vec4(current_pos, 1.0);
+                if (age < T1) {
+                    // Fase 1, explosión de particulas
+                    gl_Position = VP * vec4(burst_pos, 1.0);
+                    float shrink = 1.0 - 0.3 * (age / T1);
+                    gl_PointSize = size * shrink / gl_Position.w;
+                    vAlphaModifier = 1.0;
+                }
+                else {
+                    // Fase 2, vuelo al HUD
+                    float speed_factor = 0.25 + 0.35 * fract(initial_vel.y * 9.13 + initial_vel.x * 4.7);
+                    float phase2_duration = (max_life - T1) * speed_factor;
+                    float t2 = clamp((age - T1) / phase2_duration, 0.0, 1.0);
+                    float s = smoothstep(0.0, 1.0, t2);
 
-                // Reducimos el tamaño progresivamente
-                float shrink = 1.0 - (age / max_life) * 0.85;
-                gl_PointSize = size * shrink / gl_Position.w;
-                break;
+                    // Punto de partida en NDC
+                    vec4 world_clip = VP * vec4(burst_pos, 1.0);
+                    vec3 world_ndc = world_clip.xyz / world_clip.w;
+
+                    // Cada partícula apunta a un punto ligeramente distinto alrededor del icono
+                    vec3 unit_vel = normalize(initial_vel);
+                    vec2 est_scatter = unit_vel.xy * 0.020;
+                    vec3 target_ndc = vec3(est_target_ndc + est_scatter, -0.95);
+
+                    vec3 final_ndc = mix(world_ndc, target_ndc, s);
+                    gl_Position = vec4(final_ndc, 1.0);
+
+                    gl_PointSize = mix(size * 0.5, 3.0, s);
+                    vAlphaModifier = 1.0 - smoothstep(0.85, 1.0, t2);
+                }
+
+                vColor = color;
+                return;
+            }
             case 2: // Llave
                 // Gravedad casi nula con leve flotación hacia arriba
                 vec3 key_gravity = vec3(0.0, 0.0, 0.0);
@@ -233,6 +265,7 @@ void ParticleSystem::render(mat4 P, mat4 V) {
     transfer_mat4("VP", P * V);
     transfer_float("current_time", global_time);
     transfer_vec3("gravity", fire_gravity);
+    transfer_vec2("est_target_ndc", pickup_target_ndc); // Posición del icono de la llave
 
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
