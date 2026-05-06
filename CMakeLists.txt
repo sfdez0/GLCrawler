@@ -49,6 +49,7 @@ include_directories(libs/glad/include)
 include_directories(libs/glm)
 include_directories(libs/imgui)
 include_directories(libs/assimp/include)
+include_directories(libs/astar)
 
 include_directories(${PROJECT_SOURCE_DIR}/include)
 include_directories(${PROJECT_SOURCE_DIR}/include/KHR)
@@ -75,6 +76,8 @@ set(GPO_SOURCE_FILES include/stb/stb_image.h
 					 src/ParticleSystem.cpp
 					 src/key_module.cpp
 					 src/door.cpp
+					 libs/astar/AStar.hpp
+					 libs/astar/AStar.cpp
 					 tests/assimp/GPO_assimp_aux.h
 					 tests/assimp/GPO_assimp_aux.cpp
 					 libs/imgui/imgui.cpp
