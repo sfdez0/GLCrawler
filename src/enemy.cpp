@@ -118,7 +118,7 @@ namespace enemy {
         glDetachShader(prog_enemy, FragmentDoorID);
         glDeleteShader(FragmentDoorID);
 
-        // Cambiar al programa de puerta
+        // Cambiar al programa de enemigo
         glUseProgram(prog_enemy);
 
         enemy_model = cargar_modelo_assimp("bin/data/enemy/enemy.obj");

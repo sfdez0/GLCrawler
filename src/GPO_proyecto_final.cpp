@@ -19,6 +19,7 @@
 #include <torch_module.h>
 #include <door.h>
 #include <key_module.h>
+#include <enemy.h>
 #include <ParticleEmitter.h>
 #include <pathfinding.h>
 
@@ -468,7 +469,7 @@ Entities load_entities_from_file(const char* filename, int maze_rows, float tile
 					enemy_loaded = true;
 
 					// Calculamos la posición 3D
-					position = torch_module::compute_world_pos(x_2D, y_2D, 'u', tile_size, maze_center_xz);
+					position = enemy::compute_world_pos(x_2D, y_2D, tile_size, maze_center_xz);
 					
 					// Establecemos los datos del enemigo
 					ent.enemy.x_2D = x_2D;
@@ -831,6 +832,7 @@ void destroy_render_resources() {
 	torch_module::shutdown();
 	flame::shutdown();
 	door::shutdown();
+	enemy::shutdown();
 
 	if (tex_brick != 0) {
 		glDeleteTextures(1, &tex_brick);
@@ -898,6 +900,7 @@ void init_render_resources() {
 	// Inicializamos módulos
 	torch_module::init(); // Antorchas
 	door::init(); // Puerta de salida
+	enemy::init(); // Enemigo
 	flame::init(); // Llamas de las antorchas
 	key_module::init(); // Llaves
 	particleSystem.init(); // Sistema de partículas
@@ -1351,6 +1354,7 @@ void render_scene()
 
 	// Actualizamos enemigo
 	update_enemy(delta_time);
+	enemy::draw(entities.enemy.position, 2.0f, entities.enemy.rot_y, P, V, cam_pos);
 
 	// Actualizamos sistema de partículas
 	particleSystem.update((float)delta_time);
@@ -1521,8 +1525,9 @@ void update_enemy(float delta_time) {
 	// Si hay una ruta, intentamos avanzar hacia el siguiente waypoint
 	if (!entities.enemy.path.empty() && entities.enemy.pathIndex < entities.enemy.path.size()) {
 		const vec3& waypoint = entities.enemy.path[entities.enemy.pathIndex];
-		vec3 delta = waypoint - entities.enemy.position;
-		float distance = glm::length(delta);
+		float enemyY = entities.enemy.position.y; // Mantenemos altura fija
+		vec3 delta = vec3(waypoint.x - entities.enemy.position.x, 0.0f, waypoint.z - entities.enemy.position.z);
+		float distance = glm::length(vec2(delta.x, delta.z));
 		float enemySpeed = 1.5f;
 
 		// Diferenciamos la distancia al waypoint
@@ -1535,6 +1540,14 @@ void update_enemy(float delta_time) {
 			vec3 direction = glm::normalize(delta);
 			entities.enemy.position += direction * enemySpeed * (float)delta_time;
 		}
+
+		// Mantenemos altura fija, y rotación hacia el jugador
+		float to_player_x = cam_pos.x - entities.enemy.position.x;
+		float to_player_z = cam_pos.z - entities.enemy.position.z;
+		if ((to_player_x * to_player_x + to_player_z * to_player_z) > 0.001f) {
+			entities.enemy.rot_y = atan2(to_player_x, to_player_z);
+		}
+		entities.enemy.position.y = enemyY;
 	}
 }
 
