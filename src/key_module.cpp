@@ -208,8 +208,6 @@ namespace {
 
     // draw(): dibuja una llave en la posición indicada, animada según el tiempo. 
     void draw(vec3 base_pos, float scale, float time, mat4 P, mat4 V, vec3 cam_pos) {
-        glUseProgram(prog_key);
-
         // Oscilación senoidal en altura + giro continuo sobre eje Y
         float hover = HOVER_AMPLITUDE * sin(time * HOVER_SPEED);
         float angle = time * ROTATION_SPEED;
@@ -220,12 +218,12 @@ namespace {
                * rotate(mat4(1.0f), glm::radians(45.0f), vec3(0,0,1))
                * glm::scale(mat4(1.0f), vec3(scale, scale, scale));
 
+        lighting::upload_to_shader(prog_key); // Incluye "glUseProgram(prog_key);"
+
         // Subida de uniforms al shader
         transfer_mat4("MVP", P * V * M); 
         transfer_mat4("M", M);
         transfer_vec3("camPos", cam_pos);
-
-        lighting::upload_to_shader(prog_key);
 
         // Vinculamos las texturas del material a sus unidades antes de dibujar
         bind_material(mat_key);

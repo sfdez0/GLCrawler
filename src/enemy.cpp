@@ -139,19 +139,16 @@ namespace enemy {
     }
 
     void draw(vec3 pos, float scale, float rot_y, mat4 P, mat4 V, vec3 cam_pos) {
-        glUseProgram(prog_enemy);
-
         mat4 M = translate(mat4(1.0f), pos)
             * rotate(mat4(1.0f), rot_y, vec3(0, 1, 0))
             * glm::scale(mat4(1.0f), vec3(scale, scale, scale));
+
+        lighting::upload_to_shader(prog_enemy); // Incluye "glUseProgram(prog_enemy);"
 
         transfer_mat4 ("MVP", P * V * M);
         transfer_mat4 ("M", M);
         transfer_vec3 ("camPos", cam_pos);
         transfer_float("time", (float)glfwGetTime());
-
-        lighting::upload_to_shader(prog_enemy);
-        glUseProgram(prog_enemy);
 
         for (unsigned int i = 0; i < enemy_model.nInstancias; i++){
             unsigned int j = enemy_model.instIdx[i];
