@@ -38,7 +38,7 @@ Particle Particle::CreatePickup(vec3 pos){
         cos(phi) * sin(theta) * speed
     );
 
-    p.max_life = randf(0.7f, 1.3f); // Vida aleatorio
+    p.max_life = 2.2f; // Vida fijo
     p.life = p.max_life;
     p.size = randf(6.0f, 12.0f); // Tamaño aleatorio
 

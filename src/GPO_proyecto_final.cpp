@@ -47,8 +47,13 @@ const int default_side_size = 15;
 
 // Variables de estado del jugador
 int player_health = 100;
-int player_mana = 50;
+float player_mana = 100.0f;
 int player_keys = 0;
+
+// Constantes de mana
+const float MAX_MANA = 100.0f; // Mana máxima
+const float MANA_DRAIN_RATE = 15.0f; // Mana consumido por segundo
+const float MANA_REGEN_RATE = 8.0f; // Mana regenerada por segundo
 
 /**
  * Estructura para almacenar datos de antorchas
@@ -930,7 +935,7 @@ vec3 cam_target = vec3(0.0f, 0.0f, 1.0f); // Dirección hacia donde mira la cám
 vec3 cam_up = vec3(0.0f, 1.0f, 0.0f); // Vector "arriba" de la cámara
 int cam_fov = 62; // Campo de visión inicial
 int cam_speed = 3; // Velocidad de movimiento de la cámara
-int cam_run_speed = 4; // Velocidad en carrera (Shift)
+int cam_run_speed = 6; // Velocidad en carrera (Shift)
 float aspect_ratio = 4.0f / 3.0f; // Aspect ratio inicial (proporción de la ventana)
 float cam_radius = 0.5f; // Radio de colisión de la cámara (como esfera)
 
@@ -977,7 +982,7 @@ void reset_scene(const char* map_path, int side_size) {
 	}
 
 	player_health = 100;
-	player_mana = 50;
+	player_mana = MAX_MANA;
 	player_keys = 0;
 
 	cam_pos = vec3(-26.0f, 3.0f, -26.0f);
@@ -1014,8 +1019,9 @@ void init_imgui() {
  * Función para renderizar el panel de configuración
  */
 void renderSettingsPanel() {
+	ImGuiIO& io = ImGui::GetIO();
 	// Posición del panel en centro de la pantalla y tamaño prefijado (siempre que aparezca)
-	ImGui::SetNextWindowPos(ImVec2(ANCHO / 2.0f - 200, ALTO / 2.0f - 150), ImGuiCond_Appearing);
+	ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x / 2.0f - 200, io.DisplaySize.y / 2.0f - 150), ImGuiCond_Appearing);
 	ImGui::SetNextWindowSize(ImVec2(400, 300), ImGuiCond_Appearing);
     
 	// Si se muestra el panel, renderizamos su contenido (sin movimiento ni colapso)
@@ -1129,43 +1135,132 @@ void renderSettingsPanel() {
  * @param io Referencia a la estructura i/o de ImGui
  */
 void renderGameUI(ImGuiIO& io) {
-	// Panel de estadísticas en esquina superior derecha, con tamaño fijo (siempre)
-    ImGui::SetNextWindowPos(ImVec2(ANCHO - 320, 10), ImGuiCond_Always);
-    ImGui::SetNextWindowSize(ImVec2(300, 160), ImGuiCond_Always);
-    
-	// Si se muestra el panel, renderizamos su contenido (sin título ni movimiento)
-    if (show_stats && ImGui::Begin("Estadísticas", &show_stats, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove)) {
-		ImGui::Text("Salud");
-        ImGui::ProgressBar(player_health / 100.0f, ImVec2(-1, 0));
-        
-        ImGui::Text("Maná");
-        ImGui::ProgressBar(player_mana / 50.0f, ImVec2(-1, 0));
+	// Tamaño actual de la ventana 
+	const float SCR_W = io.DisplaySize.x;
+	const float SCR_H = io.DisplaySize.y;
 
-		ImGui::Text("Llaves");
-        ImGui::ProgressBar(player_keys / 3.0f, ImVec2(-1, 0));
-        
+    const float HUD_W = 340.0f; // Ancho del panel
+	const float HUD_H = 40.0f; // Alto del panel
+	const float ICON = 22.0f; // Tamaño de icono
+	const float GAP_ICON_TXT = 6.0f; // Separación entre un icono y texto
+	const float GAP_GROUP = 24.0f; // Separación ente indicadores distintos
+	const float MANA_BAR_W = 70.0f; // Ancho de la barra de mana
+	const float MANA_BAR_H = 8.0f; // Alto de la barra de mana
+
+	// Panel de estadísticas en esquina superior derecha, con tamaño fijo (siempre)
+	ImGui::SetNextWindowPos(ImVec2(SCR_W - HUD_W, 10), ImGuiCond_Always);
+	ImGui::SetNextWindowSize(ImVec2(HUD_W, HUD_H), ImGuiCond_Always);
+
+    ImGuiWindowFlags hud_flags =
+        ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove |
+        ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar |
+        ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoSavedSettings |
+        ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNav;
+
+    if (show_stats && ImGui::Begin("HUD", nullptr, hud_flags)) {
+		// Obtenemos el draw list de la ventana actual
+		ImDrawList* dl = ImGui::GetWindowDrawList();
+        ImVec2 origin = ImGui::GetCursorScreenPos();
+
+        const ImU32 COL_GREEN = IM_COL32( 90, 200,90, 255); // Verde para HP
+        const ImU32 COL_YELLOW = IM_COL32(230, 200,60, 255); // Amarillo para llave
+        const ImU32 COL_BLUE = IM_COL32( 80, 180, 255, 255); // Azul brillante para mana
+        const ImU32 COL_BLUE_DIM = IM_COL32( 25, 55, 105, 220); // Azul oscuro para fondo de barra
+        const ImU32 COL_BLUE_BORDER = IM_COL32( 60, 130, 200, 255); // Azul medio para borde
+        const ImU32 COL_WHITE = IM_COL32(255, 255, 255, 255); // Blanco para los textos
+
+        float x = origin.x;
+        float y = origin.y + (HUD_H - ICON) * 0.5f;
+        char buf[32];
+
+        // Información de HP
+        dl->AddRectFilled(ImVec2(x, y + ICON*0.35f),
+                          ImVec2(x + ICON, y + ICON*0.65f), COL_GREEN, 3.0f);
+        dl->AddRectFilled(ImVec2(x + ICON*0.35f, y),
+                          ImVec2(x + ICON*0.65f, y + ICON), COL_GREEN, 3.0f);
+
+        snprintf(buf, sizeof(buf), "%d/100", player_health);
+        ImVec2 ts = ImGui::CalcTextSize(buf);
+        dl->AddText(ImVec2(x + ICON + GAP_ICON_TXT, y + (ICON - ts.y)*0.5f),
+                    COL_WHITE, buf);
+
+        x += ICON + GAP_ICON_TXT + ts.x + GAP_GROUP;
+
+        // Información de Mana
+        ImVec2 bolt_upper[4] = {
+            ImVec2(x + 0.60f*ICON, y + 0.05f*ICON),
+            ImVec2(x + 0.65f*ICON, y + 0.05f*ICON),
+            ImVec2(x + 0.50f*ICON, y + 0.62f*ICON), 
+            ImVec2(x + 0.15f*ICON, y + 0.62f*ICON) 
+        };
+        dl->AddConvexPolyFilled(bolt_upper, 4, COL_BLUE);
+        ImVec2 bolt_lower[4] = {
+            ImVec2(x + 0.40f*ICON, y + 0.38f*ICON), 
+            ImVec2(x + 0.75f*ICON, y + 0.38f*ICON), 
+            ImVec2(x + 0.30f*ICON, y + 0.95f*ICON),
+            ImVec2(x + 0.25f*ICON, y + 0.95f*ICON)
+        };
+        dl->AddConvexPolyFilled(bolt_lower, 4, COL_BLUE);
+
+        float bar_x = x + ICON + GAP_ICON_TXT;
+        float bar_y = y + (ICON - MANA_BAR_H) * 0.5f;
+        float fill_pct = player_mana / MAX_MANA;
+        if (fill_pct < 0.0f) fill_pct = 0.0f;
+        if (fill_pct > 1.0f) fill_pct = 1.0f;
+
+        dl->AddRectFilled(ImVec2(bar_x, bar_y),
+                          ImVec2(bar_x + MANA_BAR_W, bar_y + MANA_BAR_H),
+                          COL_BLUE_DIM, 2.0f);
+        if (fill_pct > 0.0f) {
+            dl->AddRectFilled(ImVec2(bar_x, bar_y),
+                              ImVec2(bar_x + MANA_BAR_W * fill_pct, bar_y + MANA_BAR_H),
+                              COL_BLUE, 2.0f);
+        }
+        dl->AddRect(ImVec2(bar_x, bar_y),
+                    ImVec2(bar_x + MANA_BAR_W, bar_y + MANA_BAR_H),
+                    COL_BLUE_BORDER, 2.0f, 0, 1.0f);
+
+        snprintf(buf, sizeof(buf), "%d", (int)player_mana);
+        ImVec2 mana_ts = ImGui::CalcTextSize(buf);
+        dl->AddText(ImVec2(bar_x + MANA_BAR_W + GAP_ICON_TXT, y + (ICON - mana_ts.y)*0.5f),
+                    COL_WHITE, buf);
+
+        x += ICON + GAP_ICON_TXT + MANA_BAR_W + GAP_ICON_TXT + mana_ts.x + GAP_GROUP;
+
+        // Información de Llaves
+        ImVec2 ring_c(x + ICON*0.30f, y + ICON*0.5f);
+        dl->AddCircle(ring_c, ICON*0.25f, COL_YELLOW, 16, 2.5f);
+        dl->AddRectFilled(ImVec2(ring_c.x + ICON*0.20f, y + ICON*0.42f),
+                          ImVec2(x + ICON, y + ICON*0.58f), COL_YELLOW);
+        dl->AddRectFilled(ImVec2(x + ICON*0.80f, y + ICON*0.58f),
+                          ImVec2(x + ICON, y + ICON*0.75f), COL_YELLOW);
+
+        snprintf(buf, sizeof(buf), "%d/3", player_keys);
+        dl->AddText(ImVec2(x + ICON + GAP_ICON_TXT, y + (ICON - ts.y)*0.5f),
+                    COL_WHITE, buf);
+
         ImGui::End();
     }
-    
+
     // Si se muestra el panel de configuración llamamos a su render
 	if (show_settings){
-		renderSettingsPanel();
-	}
+        renderSettingsPanel();
+    }
 
-	// Mensaje de carga centrado
-	if (show_loading) {
-		ImGui::SetNextWindowPos(ImVec2(ANCHO / 2.0f, ALTO / 2.0f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
-		if (ImGui::Begin("Cargando", nullptr,
-			ImGuiWindowFlags_NoDecoration |
+    // Mensaje de carga centrado
+    if (show_loading) {
+        ImGui::SetNextWindowPos(ImVec2(SCR_W / 2.0f, SCR_H / 2.0f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+        if (ImGui::Begin("Cargando", nullptr,
+            ImGuiWindowFlags_NoDecoration |
 			ImGuiWindowFlags_NoMove |
-			ImGuiWindowFlags_AlwaysAutoResize |
+            ImGuiWindowFlags_AlwaysAutoResize |
 			ImGuiWindowFlags_NoSavedSettings |
-			ImGuiWindowFlags_NoNav |
+            ImGuiWindowFlags_NoNav |
 			ImGuiWindowFlags_NoBackground)) {
-			ImGui::Text("cargando");
-			ImGui::End();
-		}
-	}
+            ImGui::Text("cargando");
+            ImGui::End();
+        }
+    }
 }
 
 // Declaración adelantada de función
@@ -1237,8 +1332,24 @@ void render_scene()
 	double delta_time = current_time - last_frame_time;
 	last_frame_time = current_time;
 
-	// Establecemos la velocidad según si se está presionando Shift para correr o no
-	float speed = keys_pressed[6] ? cam_run_speed : cam_speed;
+	// Detectamos si el jugador se está moviendo (WASD)
+	bool is_moving = keys_pressed[0] || keys_pressed[1] || keys_pressed[2] || keys_pressed[3];
+	bool shift_held = keys_pressed[6];
+
+	// Solo puede correr si: pulsa Shift + se está moviendo + tiene mana
+	bool can_run = shift_held && is_moving && player_mana > 0.0f;
+
+	// Establecemos la velocidad según si está corriendo o no
+	float speed = can_run ? cam_run_speed : cam_speed;
+
+	// Actualizamos la mana
+	if (can_run) {
+		player_mana -= MANA_DRAIN_RATE * (float)delta_time;
+		if (player_mana < 0.0f) player_mana = 0.0f;
+	} else {
+		player_mana += MANA_REGEN_RATE * (float)delta_time;
+		if (player_mana > MAX_MANA) player_mana = MAX_MANA;
+	}
 
 	// Calculamos la distancia a mover en este frame basada en el delta y la velocidad de la cámara
 	float movement_distance = speed * (float)delta_time;
@@ -1354,6 +1465,15 @@ void render_scene()
 
 	// Actualizamos sistema de partículas
 	particleSystem.update((float)delta_time);
+
+	// Calculamos la posición NDC del icono de llaves dinámicamente según el tamaño actual de la ventana
+	ImGuiIO& io_target = ImGui::GetIO();
+	float scr_w = io_target.DisplaySize.x;
+	float scr_h = io_target.DisplaySize.y;
+	particleSystem.pickup_target_ndc = vec2(
+		1.0f - 142.0f / scr_w,
+		1.0f - 76.0f / scr_h 
+	);
 
 	// Dibujamos partículas
 	particleSystem.render(P, V);
