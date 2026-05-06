@@ -368,9 +368,16 @@ Entities load_entities_from_file(const char* filename, int maze_rows, float tile
 		return ent;
 	}
 
+	// Variables auxiliares
+	vec3 position;
+	vec3 lightPos;
+	vec3 flamePos;
+	float rot_y;
+	bool enemy_loaded = false;
+	bool exit_loaded = false;
+
 	int index = -1;
 	std::string line;
-
 	// Iteramos por el archivo línea por línea
 	while (std::getline(file, line)) {
 		index++;
@@ -391,7 +398,7 @@ Entities load_entities_from_file(const char* filename, int maze_rows, float tile
 		char type, comma;
 		int x_2D, y_2D; // Coordenadas 2D en el mapa .txt
 		char direction_2D; // Dirección 2D en el mapa .txt (u, d, r, l)
-		
+
 		// Leemos según el formato esperado (tipo, x, y, dir)
 		if (iss >> type && iss >> comma && comma == ',' // tipo,
 			&& iss >> x_2D && iss >> comma && comma == ',' // x,
@@ -403,63 +410,70 @@ Entities load_entities_from_file(const char* filename, int maze_rows, float tile
 					if (iss >> comma && comma == ',' && iss >> direction_2D) {
 						// Validamos la dirección
 						if (direction_2D == 'u' || direction_2D == 'd' || direction_2D == 'r' || direction_2D == 'l') {
-							// Creamos el objeto y lo agregamos a la lista
-							vec3 position = torch_module::compute_world_pos(x_2D, y_2D, direction_2D, tile_size, maze_center_xz);
-							float rot_y = torch_module::compute_rotation(direction_2D);
-							vec3 lightPos = lighting::compute_torch_light_pos(x_2D, y_2D, direction_2D, tile_size, maze_center_xz);
-							vec3 flamePos = flame::compute_position(position, rot_y);
+							// Calculamos la posicion 3D, rotación Y, posición de luz y posición de llama
+							position = torch_module::compute_world_pos(x_2D, y_2D, direction_2D, tile_size, maze_center_xz);
+							rot_y = torch_module::compute_rotation(direction_2D);
+							lightPos = lighting::compute_torch_light_pos(x_2D, y_2D, direction_2D, tile_size, maze_center_xz);
+							flamePos = flame::compute_position(position, rot_y);
 
-							Torch torch = Torch(
+							// Creamos la antorcha y la agregamos a la lista
+							ent.torches.emplace_back(
 								position,
 								rot_y,
 								x_2D,
 								y_2D,
 								direction_2D,
 								lightPos,
-								flamePos
-							);
-
-							ent.torches.push_back(torch);
+								flamePos);
 							printf("CARGA: Antorcha: x=%d, y=%d, dir=%c\n", x_2D, y_2D, direction_2D);
 						} else {
 							printf("CARGA: Advertencia - Direccion invalida '%c' en linea: %s\n", direction_2D, line.c_str());
 						}
 					}
 					break;
-				case 'k': {
+				case 'k':
 					// Llave: calculamos la posición 3D y la posición de su luz
-					vec3 position = key_module::compute_world_pos(x_2D, y_2D, tile_size, maze_center_xz);
-					vec3 lightPos = key_module::compute_light_pos(position);
-					
-					Keys key(x_2D, y_2D, position, lightPos);
-					ent.keys.push_back(key);
+					position = key_module::compute_world_pos(x_2D, y_2D, tile_size, maze_center_xz);
+					lightPos = key_module::compute_light_pos(position);
+
+					// Creamos la llave y la agregamos a la lista
+					ent.keys.emplace_back(x_2D, y_2D, position, lightPos);
 					printf("CARGA: Llave: x=%d, y=%d\n", x_2D, y_2D);
 					break;
-				}
 				case 'e':
-					Enemy enemy;
-					enemy.x_2D = x_2D;
-					enemy.y_2D = y_2D;
-					ent.enemy = enemy;
+					// Enemigo
+					if (enemy_loaded) {
+						printf("CARGA: Advertencia - Multiple definicion de enemigo en linea (ignorada): %s\n", line.c_str());
+						break;
+					}
+					enemy_loaded = true;
+
+					// Establecemos los datos del enemigo
+					ent.enemy.x_2D = x_2D;
+					ent.enemy.y_2D = y_2D;
 					printf("CARGA: Enemigo: x=%d, y=%d\n", x_2D, y_2D);
 					break;
 				case 'x':
-					// Salida: calculamos la posición 3D y la rotación
+					if (exit_loaded) {
+						printf("CARGA: Advertencia - Multiple definicion de salida en linea (ignorada): %s\n", line.c_str());
+						break;
+					}
+					exit_loaded = true;
+
+					// Salida
 					if (iss >> comma && comma == ',' && iss >> direction_2D) {
 						// Validamos la dirección
 						if (direction_2D == 'u' || direction_2D == 'd' || direction_2D == 'r' || direction_2D == 'l') {
-							// Creamos el objeto y lo agregamos a la lista
-							vec3 position = door::compute_world_pos(x_2D, y_2D, direction_2D, tile_size, maze_center_xz);
-							float rot_y = door::compute_rotation(direction_2D);
+							// Calculamos la posición 3D y la rotación Y
+							position = door::compute_world_pos(x_2D, y_2D, direction_2D, tile_size, maze_center_xz);
+							rot_y = door::compute_rotation(direction_2D);
 
-							Exit exit = Exit(
-								position,
-								rot_y,
-								x_2D,
-								y_2D,
-								direction_2D
-							);
-							ent.exit = exit;
+							// Establecemos los datos de la salida
+							ent.exit.position = position;
+							ent.exit.rot_y = rot_y;
+							ent.exit.x_2D = x_2D;
+							ent.exit.y_2D = y_2D;
+							ent.exit.direction_2D = direction_2D;
 							printf("CARGA: Salida: x=%d, y=%d\n", x_2D, y_2D);
 						} else {
 							printf("CARGA: Advertencia - Direccion invalida '%c' en linea: %s\n", direction_2D, line.c_str());
