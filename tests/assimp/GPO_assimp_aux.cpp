@@ -1,4 +1,5 @@
 #include "GPO_assimp_aux.h"
+#include <assimp/material.h>
 
 GLuint build_VBO(void* data, GLsizeiptr size, GLenum type) {
 	GLuint buffer;
@@ -16,6 +17,9 @@ GLuint build_VAO(aiMesh* mesh, MeshBuffers* out_buffers) {
 	float* uvs = new float[mesh->mNumVertices*2];
 	unsigned int* indices = new unsigned int[mesh->mNumFaces*3];
 
+	const bool has_normals = (mesh->mNormals != nullptr);
+	const bool has_uvs = (mesh->mTextureCoords[0] != nullptr);
+
 	//Copia de las coordenadas, normales y UVs de cada vértice
 	for (int i = 0; i < mesh->mNumVertices; i++) {
 		const int idx = i*3;
@@ -25,14 +29,25 @@ GLuint build_VAO(aiMesh* mesh, MeshBuffers* out_buffers) {
 	}
 	for (int i = 0; i < mesh->mNumVertices; i++) {
 		const int idx = i*3;
-		normales[idx] = mesh->mNormals[i].x;
-		normales[idx+1] = mesh->mNormals[i].y;
-		normales[idx+2] = mesh->mNormals[i].z;
+		if (has_normals) {
+			normales[idx] = mesh->mNormals[i].x;
+			normales[idx+1] = mesh->mNormals[i].y;
+			normales[idx+2] = mesh->mNormals[i].z;
+		} else {
+			normales[idx] = 0.0f;
+			normales[idx+1] = 1.0f;
+			normales[idx+2] = 0.0f;
+		}
 	}
 	for (int i = 0; i < mesh->mNumVertices; i++) {
 		const int idx = i*2;
-		uvs[idx] = mesh->mTextureCoords[0][i].x;
-		uvs[idx+1] = mesh->mTextureCoords[0][i].y;
+		if (has_uvs) {
+			uvs[idx] = mesh->mTextureCoords[0][i].x;
+			uvs[idx+1] = mesh->mTextureCoords[0][i].y;
+		} else {
+			uvs[idx] = 0.0f;
+			uvs[idx+1] = 0.0f;
+		}
 	}
 	//Copia de los índices, para dibujado con índices
 	for (int i = 0; i < mesh->mNumFaces; i++) {
@@ -140,9 +155,20 @@ struct escena cargar_modelo_assimp(const char* file) {
 
 	//TODO: Arreglar multitextura
 	escena.mats = new GLuint[escena.nObjetos];
+	escena.diffuse = new vec3[escena.nObjetos];
 	for (unsigned int i = 0; i < escena.nObjetos; i++) {
 		aiMesh* mesh = scene->mMeshes[i];
 		escena.objs[i] = build_objeto(mesh, &escena.buffers[i]);
+
+		aiColor3D diff(1.0f, 1.0f, 1.0f);
+		if (scene->mMaterials && mesh->mMaterialIndex < scene->mNumMaterials) {
+			aiMaterial* mat = scene->mMaterials[mesh->mMaterialIndex];
+			if (mat) {
+				mat->Get(AI_MATKEY_COLOR_DIFFUSE, diff);
+			}
+		}
+		escena.diffuse[i] = vec3(diff.r, diff.g, diff.b);
+		escena.mats[i] = 0;
 
 		//Arreglar multitextura
 		//aiMaterial* mat = scene->mMaterials[mesh->mMaterialIndex];
@@ -219,11 +245,13 @@ void limpiar_escena(struct escena* escena) {
 	delete []escena->mats;
 	delete []escena->instIdx;
 	delete []escena->buffers;
+	delete []escena->diffuse;
 
 	escena->objs = nullptr;
 	escena->mats = nullptr;
 	escena->instIdx = nullptr;
 	escena->buffers = nullptr;
+	escena->diffuse = nullptr;
 	escena->nObjetos = 0;
 	escena->nInstancias = 0;
 }

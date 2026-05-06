@@ -8,6 +8,7 @@ struct escena {
 	unsigned int nObjetos;
 	objeto* objs;
 	GLuint* mats;
+	vec3* diffuse;
 	struct MeshBuffers* buffers;
 	unsigned int nInstancias;
 	unsigned int* instIdx;
