@@ -23,6 +23,9 @@ void ParticleEmitter::update(float deltaTime, vec3 currentPos, ParticleSystem& p
             case ParticleType::Fire:
                 pSystem.emit(Particle::CreateFire(currentPos));
                 break;
+            case ParticleType::Key:
+                pSystem.emit(Particle::CreateKey(currentPos));
+                break;
             default:
                 break;
         }

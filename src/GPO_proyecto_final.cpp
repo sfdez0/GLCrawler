@@ -92,12 +92,17 @@ struct Keys {
 	vec3 lightPos;
 	// Indica si la llave ya ha sido recogida por el jugador
 	bool collected;
+	// Controlador de partículas para el aura continua
+	ParticleEmitter particleEmitter;
 
 	/**
 	 * Constructor para inicializar la llave
 	 */
 	Keys(int x_2D, int y_2D, vec3 position, vec3 lightPos)
-		: x_2D(x_2D), y_2D(y_2D), position(position), lightPos(lightPos), collected(false) {}
+		: x_2D(x_2D), y_2D(y_2D), position(position), lightPos(lightPos), collected(false) {
+			particleEmitter.typeToEmit = ParticleType::Key;
+			particleEmitter.spawnRate = 40.0f;
+		}
 };
 
 /**
@@ -1288,9 +1293,12 @@ void render_scene()
 	}
 
 	// Dibujamos llaves según entidades cargadas del mapa
-	for(const Keys& k : entities.keys){
+	for(Keys& k : entities.keys){
 		if (!k.collected) {
 			key_module::draw(k.position, 0.7f, (float)current_time, P, V, cam_pos);
+
+			// Actualizamos las partículas de la llave
+			k.particleEmitter.update(delta_time, k.lightPos, particleSystem);
 		}
 	}
 
@@ -1407,7 +1415,7 @@ bool can_move(vec3& new_pos) {
  */
 void check_key_pickup() {
     // Radio de recogida　
-    const float pickup_radius = 1.2f;
+    const float pickup_radius = 2.0f;
     const float pickup_radius_sq = pickup_radius * pickup_radius;
 
     for (Keys& k : entities.keys) {

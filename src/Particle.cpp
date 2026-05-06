@@ -21,7 +21,7 @@ Particle Particle::CreateFire(vec3 pos){
 }
 
 /**
- * Crea una partícula de "destello" para el efecto de recogida de llave
+ * Función para crear una partícula de destello para el efecto de recogida de llave
  */
 Particle Particle::CreatePickup(vec3 pos){
     Particle p;
@@ -50,5 +50,47 @@ Particle Particle::CreatePickup(vec3 pos){
         1.0f
     );
     p.type = ParticleType::Pickup;
+    return p;
+}
+
+/**
+ * Función para crear una partícula de aura que orbita alrededor de la llave
+ */
+Particle Particle::CreateKey(vec3 pos){
+    Particle p;
+
+    // Posición en un anillo alrededor del centro
+    float angle = randf(0.0f, 6.2831853f);
+    float ring_radius = randf(0.05f, 1.0f); // Anchura
+    float vertical_offset = randf(-0.8f, 0.15f); // Altura
+
+    p.pos = pos + vec3(
+        cos(angle) * ring_radius,
+        vertical_offset,
+        sin(angle) * ring_radius
+    );
+
+    // Velocidad tangencial + leve subida
+    float tangent_speed = randf(0.5f, 1.0f);
+    float rise_speed = randf(0.6f, 1.0f);
+
+    p.vel = vec3(
+        -sin(angle) * tangent_speed,
+         rise_speed,
+         cos(angle) * tangent_speed
+    );
+
+    p.max_life = randf(1.2f, 1.8f);
+    p.life = p.max_life;
+    p.size = randf(4.0f, 9.0f);
+
+    // Verde-dorado
+    p.color = vec4(
+        randf(0.5f, 0.9f),
+        randf(0.85f, 1.0f),
+        randf(0.2f, 0.5f),
+        0.8f
+    );
+    p.type = ParticleType::Key;
     return p;
 }

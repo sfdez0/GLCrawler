@@ -7,8 +7,9 @@
  */
 enum class ParticleType {
     Fire,
-    Smoke,
-    Pickup
+    Pickup,
+    Key,
+    Smoke
 };
 
 /**
@@ -39,4 +40,9 @@ struct Particle {
      * Función para crear una partícula de recoger llave
      */
     static Particle CreatePickup(vec3 pos);
+
+     /**
+     * Función para crear una partícula de llave
+     */
+    static Particle CreateKey(vec3 pos);
 };

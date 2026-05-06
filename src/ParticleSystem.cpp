@@ -43,7 +43,7 @@ const char* vertex_particles = GLSL(
                 gl_Position = VP * vec4(current_pos, 1.0);
                 gl_PointSize = size / gl_Position.w;
                 break;
-            case 2: // Llave
+            case 1: // Recogida de Llave
                 // Gravedad casi nula con leve flotación hacia arriba
                 vec3 pickup_gravity = vec3(0.0, 0.4, 0.0);
 
@@ -57,6 +57,19 @@ const char* vertex_particles = GLSL(
                 // Reducimos el tamaño progresivamente
                 float shrink = 1.0 - (age / max_life) * 0.85;
                 gl_PointSize = size * shrink / gl_Position.w;
+                break;
+            case 2: // Llave
+                // Gravedad casi nula con leve flotación hacia arriba
+                vec3 key_gravity = vec3(0.0, 0.0, 0.0);
+                current_pos = initial_pos + initial_vel * age 
+                            + 0.5 * key_gravity * age * age;
+
+                gl_Position = VP * vec4(current_pos, 1.0);
+
+                // Reduccimos el de tamaño progresivamente + parpadeo
+                float key_shrink = 1.0 - (age / max_life) * 0.6;
+                float twinkle = 0.85 + 0.15 * sin(age * 12.0 + initial_pos.x * 5.0);
+                gl_PointSize = size * key_shrink * twinkle / gl_Position.w;
                 break;
             default:
                 break;
