@@ -111,7 +111,7 @@ namespace door {
                 vec3 diffuseColor = baseColor * mix(1.0, 0.15, metallic);
 
                 // Ambiente
-                vec3 ambient = baseColor * mix(0.20, 0.12, metallic);
+                vec3 ambient = baseColor * mix(0.05, 0.02, metallic) * ao;
                 vec3 result = ambient;
 
                 float specularPower = mix(32.0, 2.0, 1.0f);
@@ -253,7 +253,6 @@ namespace door {
             unsigned int j = door_model.instIdx[i];
             objeto& obj = door_model.objs[j];
 
-            // j == 0 mango ; j != 0 placa con grabado
             bind_material(mat_door);
             glBindVertexArray(obj.VAO);
             glDrawElements(GL_TRIANGLES, obj.Ni, obj.tipo_indice, (void*)0);
