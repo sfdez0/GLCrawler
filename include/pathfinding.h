@@ -24,10 +24,6 @@ public:
 
     std::vector<vec3> findPath(float startX, float startY, float targetX, float targetY);
 
-    void setDiagonalMovement(bool enable);
-
-    void setHeuristic(AStar::HeuristicFunction heuristic);
-
     AStar::Vec2i worldToMapCoordinates(float x, float z);
 
     vec3 mapToWorldCoordinates(int mapX, int mapY);

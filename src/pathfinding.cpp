@@ -75,22 +75,6 @@ std::vector<vec3> PathfindingModule::findPath(float startX, float startY, float 
 }
 
 /**
- * Funcion para configurar si se permite movimiento diagonal
- * @param enable true para permitir movimiento diagonal, false para desactivarlo
- */
-void PathfindingModule::setDiagonalMovement(bool enable) {
-    generator.setDiagonalMovement(enable);
-}
-
-/**
- * Funcion para configurar la heurística de búsqueda
- * @param heuristic Función de heurística astar a usar
- */
-void PathfindingModule::setHeuristic(AStar::HeuristicFunction heuristic) {
-    generator.setHeuristic(heuristic);
-}
-
-/**
  * Funcion para convertir coordenadas del juego a coordenadas del mapa
  * @param x Coordenada X en el mundo
  * @param z Coordenada Z en el mundo
@@ -111,6 +95,9 @@ AStar::Vec2i PathfindingModule::worldToMapCoordinates(float x, float z) {
 
 /**
  * Funcion para convertir coordenadas del mapa a coordenadas del juego
+ * @param mapX Coordenada X en el mapa
+ * @param mapY Coordenada Y en el mapa
+ * @return Coordenadas en el mundo 3D
  */
 vec3 PathfindingModule::mapToWorldCoordinates(int mapX, int mapY) {
     float worldX = mapX * cellSize - mazeCenterXZ;
