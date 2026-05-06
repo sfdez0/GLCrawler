@@ -1,0 +1,13 @@
+# exported by https://3dviewer.net
+newmtl Mat
+Kd 0.8 0.8 0.8
+d 1
+Ka 0 0 0
+Ks 0.2 0.2 0.2
+Ns 320
+newmtl Mat.1
+Kd 0.9098039215686274 0.7450980392156863 0.6745098039215687
+d 1
+Ka 0 0 0
+Ks 0.2 0.2 0.2
+Ns 320

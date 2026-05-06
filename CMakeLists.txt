@@ -66,6 +66,7 @@ set(GPO_SOURCE_FILES include/stb/stb_image.h
 					 include/ParticleEmitter.h
 					 include/ParticleSystem.h
 					 include/pathfinding.h
+					 include/enemy.h
 					 src/GPO_proyecto_final.cpp
 					 src/GPO_aux.cpp
 					 src/maze.cpp
@@ -77,6 +78,7 @@ set(GPO_SOURCE_FILES include/stb/stb_image.h
 					 src/ParticleSystem.cpp
 					 src/key_module.cpp
 					 src/door.cpp
+					 src/enemy.cpp
 					 src/pathfinding.cpp
 					 libs/astar/AStar.hpp
 					 libs/astar/AStar.cpp
