@@ -896,10 +896,10 @@ void init_render_resources() {
 	tex_normal = cargar_textura("bin/data/brick_n.jpg", GL_TEXTURE1);
 	transfer_int("normalMap", 1);
 
-	tex_displacement = cargar_textura("bin/data/brick_d.jpg", GL_TEXTURE3);
+	tex_displacement = cargar_textura("bin/data/brick_d.jpg", GL_TEXTURE2);
 	transfer_int("displacementMap", 2);
 
-	tex_ao = cargar_textura("bin/data/brick_ao.jpg", GL_TEXTURE4);
+	tex_ao = cargar_textura("bin/data/brick_ao.jpg", GL_TEXTURE3);
 	transfer_int("aoMap", 3);
 
 	// Inicializamos módulos
