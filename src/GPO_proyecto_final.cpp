@@ -1378,7 +1378,7 @@ void update_enemy(float delta_time, float current_time, const mat4& P, const mat
 		}
 
 		// Si el enemigo está lo bastante cerca, reducimos la salud del jugador (con cooldown)
-		if (distance_to_player < 3.5f) {
+		if (distance_to_player < 4.1f) {
 			// Verificamos si ha pasado el tiempo de cooldown
 			if (current_time - entities.enemy.last_attack_time > entities.enemy.attack_cooldown) {
 				entities.enemy.last_attack_time = current_time;
@@ -1810,7 +1810,7 @@ int main(int argc, char* argv[])
 	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 	
 	// Hacemos que se sincronice con la tasa de refresco del monitor
-	glfwSwapInterval(0);
+	glfwSwapInterval(1);
 
 	while (!glfwWindowShouldClose(window))
 	{

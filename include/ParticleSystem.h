@@ -9,7 +9,7 @@
 class ParticleSystem {
 private:
     // Número máximo de partículas
-    const int maxParticles = 2048;
+    const int maxParticles = 4096;
 
     float global_time = 0.0f;
 
