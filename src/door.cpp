@@ -138,7 +138,7 @@ namespace door {
                     float light_cutoff = 1.0 - smoothstep(light_range - light_soft, light_range, light_dist); // Factor de atenuación basado en la distancia
                     float light_attenuation = light_cutoff / (1.0 + 0.2 * light_dist + 0.5 * light_dist * light_dist); // Atenuación
 
-                    vec3 contribution = baseColor * ((ambient * light_cutoff) + 1.5 * diffuse * light_attenuation * ao) + vec3(specular * light_attenuation);
+                    vec3 contribution = (baseColor * diffuse * light_attenuation * ao) + vec3(specular * light_attenuation);
 
                     // Aplicamos color e intensidad de la luz (incluye el parpadeo)
 			        result += contribution * lightColors[i] * lightIntensities[i];

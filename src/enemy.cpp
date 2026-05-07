@@ -79,8 +79,8 @@ namespace enemy {
                     float light_cutoff = 1.0 - smoothstep(light_range - light_soft, light_range, light_dist);
                     float light_attenuation = light_cutoff / (1.0 + 0.2 * light_dist + 0.5 * light_dist * light_dist);
 
-                    vec3 contribution = (baseColor * diffuse + vec3(specular)) * light_attenuation;
-                    
+                    vec3 contribution = (baseColor * diffuse * light_attenuation) + vec3(specular * light_attenuation);
+
                     // Aplicamos color e intensidad de la luz (incluye el parpadeo)
 			        result += contribution * lightColors[i] * lightIntensities[i];
                 }
