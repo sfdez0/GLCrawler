@@ -72,6 +72,8 @@ int player_keys = 0;
 const float MAX_STAMINA = 100.0f; // Resistencia máxima
 const float STAMINA_DRAIN_RATE = 15.0f; // Resistencia consumida por segundo
 const float STAMINA_REGEN_RATE = 8.0f; // Resistencia regenerada por segundo
+const float STAMINA_REGEN_COOLDOWN = 2.0f; // Tiempo de enfriamiento antes de regenerar resistencia
+float stamina_regen_timer = 0.0f; // Temporizador para controlar el enfriamiento de la regeneración de resistencia
 
 // Variables de cámara
 vec3 cam_pos = vec3(-26.0f, 3.0f, -26.0f); // Posición inicial de la cámara (observador)
@@ -1169,8 +1171,9 @@ static void bind_scene_textures() {
 /**
  * Función para actualizar la posición de la cámara cada frame.
  * @param delta_time Tiempo transcurrido desde el último frame
+ * @param current_time Tiempo actual
  */
-void update_controls(float delta_time) {
+void update_controls(float delta_time, float current_time) {
 	// Si el juego está pausado, no procesamos controles
 	if (game_over || show_settings) return;
 
@@ -1188,9 +1191,13 @@ void update_controls(float delta_time) {
 	if (can_run) {
 		player_stamina -= STAMINA_DRAIN_RATE * (float)delta_time;
 		if (player_stamina < 0.0f) player_stamina = 0.0f;
+		stamina_regen_timer = current_time; // Reinicia el cooldown al consumir resistencia
 	} else {
-		player_stamina += STAMINA_REGEN_RATE * (float)delta_time;
-		if (player_stamina > MAX_STAMINA) player_stamina = MAX_STAMINA;
+		// Aplicamos el cooldown de regeneracion
+		if (current_time - stamina_regen_timer > STAMINA_REGEN_COOLDOWN) {
+			player_stamina += STAMINA_REGEN_RATE * (float)delta_time;
+			if (player_stamina > MAX_STAMINA) player_stamina = MAX_STAMINA;
+		}
 	}
 
 	// Calculamos la distancia a mover en este frame basada en el delta y la velocidad de la cámara
@@ -1731,7 +1738,7 @@ void render_scene()
 		current_time = game_over_time;
 	}
 
-	update_controls(delta_time);
+	update_controls(delta_time, (float)current_time);
 
 	check_exit_condition(delta_time);
 
