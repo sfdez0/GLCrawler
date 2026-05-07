@@ -1171,6 +1171,9 @@ static void bind_scene_textures() {
  * @param delta_time Tiempo transcurrido desde el último frame
  */
 void update_controls(float delta_time) {
+	// Si el juego está pausado, no procesamos controles
+	if (game_over || show_settings) return;
+
 	// Detectamos si el jugador se está moviendo (WASD)
 	bool is_moving = keys_pressed[0] || keys_pressed[1] || keys_pressed[2] || keys_pressed[3];
 
@@ -1334,8 +1337,8 @@ void update_exit(const mat4& P, const mat4& V) {
  * @param V Matriz de vista actual
  */
 void update_enemy(float delta_time, float current_time, const mat4& P, const mat4& V) {
-	// Si el juego ha terminado, fijamos la posición del enemigo
-	if (game_over) {
+	// Si el juego está pausado, fijamos la posición del enemigo
+	if (game_over || show_settings) {
 		enemy::draw(entities.enemy.position, 2.0f, entities.enemy.rot_y, P, V, cam_pos);
 		return;
 	}
