@@ -65,13 +65,13 @@ const int default_side_size = 15;
 
 // Variables de estado del jugador
 int player_health = 100;
-float player_mana = 100.0f;
+float player_stamina = 100.0f;
 int player_keys = 0;
 
-// Constantes de mana
-const float MAX_MANA = 100.0f; // Mana máxima
-const float MANA_DRAIN_RATE = 15.0f; // Mana consumido por segundo
-const float MANA_REGEN_RATE = 8.0f; // Mana regenerada por segundo
+// Constantes de resistencia
+const float MAX_STAMINA = 100.0f; // Resistencia máxima
+const float STAMINA_DRAIN_RATE = 15.0f; // Resistencia consumida por segundo
+const float STAMINA_REGEN_RATE = 8.0f; // Resistencia regenerada por segundo
 
 // Variables de cámara
 vec3 cam_pos = vec3(-26.0f, 3.0f, -26.0f); // Posición inicial de la cámara (observador)
@@ -1050,7 +1050,7 @@ void reset_scene(const char* map_path, int side_size) {
 	}
 
 	player_health = 100;
-	player_mana = MAX_MANA;
+	player_stamina = MAX_STAMINA;
 	player_keys = 0;
 
 	cam_pos = vec3(-26.0f, 3.0f, -26.0f);
@@ -1151,20 +1151,20 @@ void update_controls(float delta_time) {
 	// Detectamos si el jugador se está moviendo (WASD)
 	bool is_moving = keys_pressed[0] || keys_pressed[1] || keys_pressed[2] || keys_pressed[3];
 
-	// Solo puede correr si: pulsa Shift + se está moviendo + tiene mana
+	// Solo puede correr si: pulsa Shift + se está moviendo + tiene resistencia 
 	bool shift_held = keys_pressed[6];
-	bool can_run = shift_held && is_moving && player_mana > 0.0f;
+	bool can_run = shift_held && is_moving && player_stamina > 0.0f;
 
 	// Establecemos la velocidad según si está corriendo o no
 	float speed = can_run ? cam_run_speed : cam_speed;
 
-	// Actualizamos la mana
+	// Actualizamos la resistencia
 	if (can_run) {
-		player_mana -= MANA_DRAIN_RATE * (float)delta_time;
-		if (player_mana < 0.0f) player_mana = 0.0f;
+		player_stamina -= STAMINA_DRAIN_RATE * (float)delta_time;
+		if (player_stamina < 0.0f) player_stamina = 0.0f;
 	} else {
-		player_mana += MANA_REGEN_RATE * (float)delta_time;
-		if (player_mana > MAX_MANA) player_mana = MAX_MANA;
+		player_stamina += STAMINA_REGEN_RATE * (float)delta_time;
+		if (player_stamina > MAX_STAMINA) player_stamina = MAX_STAMINA;
 	}
 
 	// Calculamos la distancia a mover en este frame basada en el delta y la velocidad de la cámara
@@ -1503,8 +1503,8 @@ void renderGameUI(ImGuiIO& io) {
 	const float ICON = 22.0f; // Tamaño de icono
 	const float GAP_ICON_TXT = 6.0f; // Separación entre un icono y texto
 	const float GAP_GROUP = 24.0f; // Separación ente indicadores distintos
-	const float MANA_BAR_W = 70.0f; // Ancho de la barra de mana
-	const float MANA_BAR_H = 8.0f; // Alto de la barra de mana
+	const float STAMINA_BAR_W = 70.0f; // Ancho de la barra de resistencia
+	const float STAMINA_BAR_H = 8.0f; // Alto de la barra de resistencia
 
 	// Panel de estadísticas en esquina superior derecha, con tamaño fijo (siempre)
 	ImGui::SetNextWindowPos(ImVec2(SCR_W - HUD_W, 10), ImGuiCond_Always);
@@ -1523,7 +1523,7 @@ void renderGameUI(ImGuiIO& io) {
 
         const ImU32 COL_GREEN = IM_COL32( 90, 200,90, 255); // Verde para HP
         const ImU32 COL_YELLOW = IM_COL32(230, 200,60, 255); // Amarillo para llave
-        const ImU32 COL_BLUE = IM_COL32( 80, 180, 255, 255); // Azul brillante para mana
+        const ImU32 COL_BLUE = IM_COL32( 80, 180, 255, 255); // Azul brillante para resistencia
         const ImU32 COL_BLUE_DIM = IM_COL32( 25, 55, 105, 220); // Azul oscuro para fondo de barra
         const ImU32 COL_BLUE_BORDER = IM_COL32( 60, 130, 200, 255); // Azul medio para borde
         const ImU32 COL_WHITE = IM_COL32(255, 255, 255, 255); // Blanco para los textos
@@ -1545,7 +1545,7 @@ void renderGameUI(ImGuiIO& io) {
 
         x += ICON + GAP_ICON_TXT + ts.x + GAP_GROUP;
 
-        // Información de Mana
+        // Información de resistencia
         ImVec2 bolt_upper[4] = {
             ImVec2(x + 0.60f*ICON, y + 0.05f*ICON),
             ImVec2(x + 0.65f*ICON, y + 0.05f*ICON),
@@ -1562,29 +1562,29 @@ void renderGameUI(ImGuiIO& io) {
         dl->AddConvexPolyFilled(bolt_lower, 4, COL_BLUE);
 
         float bar_x = x + ICON + GAP_ICON_TXT;
-        float bar_y = y + (ICON - MANA_BAR_H) * 0.5f;
-        float fill_pct = player_mana / MAX_MANA;
+        float bar_y = y + (ICON - STAMINA_BAR_H) * 0.5f;
+        float fill_pct = player_stamina / MAX_STAMINA;
         if (fill_pct < 0.0f) fill_pct = 0.0f;
         if (fill_pct > 1.0f) fill_pct = 1.0f;
 
         dl->AddRectFilled(ImVec2(bar_x, bar_y),
-                          ImVec2(bar_x + MANA_BAR_W, bar_y + MANA_BAR_H),
+                          ImVec2(bar_x + STAMINA_BAR_W, bar_y + STAMINA_BAR_H),
                           COL_BLUE_DIM, 2.0f);
         if (fill_pct > 0.0f) {
             dl->AddRectFilled(ImVec2(bar_x, bar_y),
-                              ImVec2(bar_x + MANA_BAR_W * fill_pct, bar_y + MANA_BAR_H),
+                              ImVec2(bar_x + STAMINA_BAR_W * fill_pct, bar_y + STAMINA_BAR_H),
                               COL_BLUE, 2.0f);
         }
         dl->AddRect(ImVec2(bar_x, bar_y),
-                    ImVec2(bar_x + MANA_BAR_W, bar_y + MANA_BAR_H),
+                    ImVec2(bar_x + STAMINA_BAR_W, bar_y + STAMINA_BAR_H),
                     COL_BLUE_BORDER, 2.0f, 0, 1.0f);
 
-        snprintf(buf, sizeof(buf), "%d", (int)player_mana);
-        ImVec2 mana_ts = ImGui::CalcTextSize(buf);
-        dl->AddText(ImVec2(bar_x + MANA_BAR_W + GAP_ICON_TXT, y + (ICON - mana_ts.y)*0.5f),
+        snprintf(buf, sizeof(buf), "%d", (int)player_stamina);
+        ImVec2 stamina_ts = ImGui::CalcTextSize(buf);
+        dl->AddText(ImVec2(bar_x + STAMINA_BAR_W + GAP_ICON_TXT, y + (ICON - stamina_ts.y)*0.5f),
                     COL_WHITE, buf);
 
-        x += ICON + GAP_ICON_TXT + MANA_BAR_W + GAP_ICON_TXT + mana_ts.x + GAP_GROUP;
+        x += ICON + GAP_ICON_TXT + STAMINA_BAR_W + GAP_ICON_TXT + stamina_ts.x + GAP_GROUP;
 
         // Información de Llaves
         ImVec2 ring_c(x + ICON*0.30f, y + ICON*0.5f);
@@ -1684,7 +1684,6 @@ void render_scene()
 
 	update_enemy(delta_time, P, V);
 
-	// Dibujamos el cubo del escenario
 	lighting::upload_to_shader(prog); // Incluye glUseProgram(prog);
 
 	bind_scene_textures();
