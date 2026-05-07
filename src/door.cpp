@@ -68,8 +68,8 @@ namespace door {
             uniform int numLights;
             uniform vec3 lightPositions[16];
             uniform vec3 lightColors[16];
+            uniform float lightIntensities[16];
             uniform vec3 camPos;
-            uniform float time;
 
             out vec3 outputColor;
 
@@ -138,28 +138,10 @@ namespace door {
                     float light_cutoff = 1.0 - smoothstep(light_range - light_soft, light_range, light_dist); // Factor de atenuación basado en la distancia
                     float light_attenuation = light_cutoff / (1.0 + 0.2 * light_dist + 0.5 * light_dist * light_dist); // Atenuación
 
-                    // Cambio pseudoaleatorio en la intensidad de cada luz para simular el parpadeo de las llamas
-                    float intensity = 1.0;
-                    if (i > 0) { // Excepto luz del personaje
-                        float seed = fract(i * 12.9898 + i * 78.233 - i * 45.164); // Semilla basada en índice
-                        float phase = seed * 6.2831853; // Fase "base"
-                        float f1 = 1.1 + seed * 0.9; // Frecuencia 1
-                        float f2 = 2.7 + seed * 1.3; // Frecuencia 2
-                        float f3 = 4.5 + seed * 2.1; // Frecuencia 3
+                    vec3 contribution = baseColor * ((ambient * light_cutoff) + 1.5 * diffuse * light_attenuation * ao) + vec3(specular * light_attenuation);
 
-                        // Aplicamos a la intensidad la suma de 3 ondas sinusoidales pseudoaleatorias
-                        intensity = 0.8
-                            + 0.25 * sin(time * f1 + phase)
-                            + 0.10 * sin(time * f2 + phase * 1.7)
-                            + 0.05 * sin(time * f3 + phase * 2.3);
-
-                        // Limitamos intensidad entre 0.5 y 1.2
-                        intensity = clamp(intensity, 0.5, 1.2); 
-                    }
-
-                    vec3 contribution = (baseColor * ((ambient * light_cutoff) + 1.5 * diffuse * light_attenuation * ao) + vec3(specular * light_attenuation)) * lightColors[i];
-
-                    result += contribution * intensity;
+                    // Aplicamos color e intensidad de la luz (incluye el parpadeo)
+			        result += contribution * lightColors[i] * lightIntensities[i];
                 }
 
                 outputColor = result;
@@ -246,7 +228,6 @@ namespace door {
         transfer_mat4 ("MVP", P * V * M);
         transfer_mat4 ("M", M);
         transfer_vec3 ("camPos", cam_pos);
-        transfer_float("time", (float)glfwGetTime());
 
         for (unsigned int i = 0; i < door_model.nInstancias; i++){
             unsigned int j = door_model.instIdx[i];

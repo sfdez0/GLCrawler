@@ -67,8 +67,8 @@ namespace {
         uniform int numLights;
         uniform vec3 lightPositions[16];
         uniform vec3 lightColors[16];
+        uniform float lightIntensities[16];
         uniform vec3 camPos;
-        uniform float time;
 
         out vec3 outputColor;
 
@@ -130,25 +130,14 @@ namespace {
                 float cutoff = 1.0 - smoothstep(light_range - light_soft, light_range, light_dist);
                 float att = cutoff / (1.0 + 0.2 * light_dist + 0.5 * light_dist * light_dist);
 
-                // Parpadeo 
-                float intensity = 1.0;
-                if (i > 0){
-                    float seed = fract(i * 12.9898 + i * 78.233 - i * 45.164);
-                    float phase = seed * 6.2831853;
-                    intensity = 0.8
-                              + 0.25 * sin(time * (1.1 + seed*0.9) + phase)
-                              + 0.10 * sin(time * (2.7 + seed*1.3) + phase * 1.7)
-                              + 0.05 * sin(time * (4.5 + seed*2.1) + phase * 2.3);
-                    intensity = clamp(intensity, 0.5, 1.2);
-                }
 
                 // Especular
                 vec3 specComponent = specTint * (Ks * specular * 0.4);
 
-                vec3 contrib = ( diffuseColor * diffuse + specComponent )
-                             * lightColors[i] * att * intensity;
+                vec3 contribution = (diffuseColor * diffuse + specComponent) * att;
 
-                result += contrib;
+                // Aplicamos color e intensidad de la luz (incluye el parpadeo)
+                result += contribution * lightColors[i] * lightIntensities[i];
             }
 
             result = pow(result, vec3(1.0 / 2.2));
@@ -258,7 +247,6 @@ void draw(vec3 pos, float scale, float rot_y, mat4 P, mat4 V, vec3 cam_pos) {
     transfer_mat4 ("MVP", P * V * M);
     transfer_mat4 ("M", M);
     transfer_vec3 ("camPos", cam_pos);
-    transfer_float("time", (float)glfwGetTime());
 
     for (unsigned int i = 0; i < torch_model.nInstancias; i++){
         unsigned int j = torch_model.instIdx[i];

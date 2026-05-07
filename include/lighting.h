@@ -10,7 +10,7 @@ namespace lighting {
     void clear();
 
     // Añadir una luz al array 
-    void add(vec3 pos, vec3 color);
+    void add(vec3 pos, vec3 color, float time);
 
     // Subir el array de luces al programa shader dado
     void upload_to_shader(GLuint prog);
