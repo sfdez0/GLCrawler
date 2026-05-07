@@ -16,7 +16,7 @@ namespace door {
         struct escena door_model;
 
         // Configuración del posicionamiento 
-        constexpr float WALL_OFFSET = -0.4f; // desplazamiento desde el centro de la celda hacia la pared
+        constexpr float WALL_OFFSET = -0.25f; // desplazamiento desde el centro de la celda hacia la pared
         constexpr float HEIGHT_FACTOR = 0.6f; // altura sobre el suelo
 
         // Enlazar 4 texturas a sus unidades GLSL
