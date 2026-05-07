@@ -293,8 +293,8 @@ float compute_rotation(char direction) {
     switch (direction) {
         case 'u': return -glm::pi<float>() * 0.5f; // -90º
         case 'd': return glm::pi<float>() * 0.5f; // +90º
-        case 'l': return glm::pi<float>(); // 180º
-        case 'r': return 0.0f; // 0º
+        case 'l': return 0.0f; // 0º
+        case 'r': return glm::pi<float>(); // 180º
     }
     return 0.0f;
 }
