@@ -1108,20 +1108,20 @@ bool can_move(vec3& new_pos) {
  * Función para comprobar las condiciones de salida.
  * Si porta las tres llaves pero está lejos, se activa el cambio de rotación de la puerta.
  * Si porta las tres llaves y está cerca, se acaba el juego.
+ * @param delta_time Tiempo transcurrido desde el último frame
+ * @param current_time Tiempo actual
  */
-void check_exit_condition(float delta_time) {
+void check_exit_condition(float delta_time, float current_time) {
 	if (player_keys >= 3) {
 		if (&entities.exit.position) {
 			float dx = cam_pos.x - entities.exit.position.x;
 			float dz = cam_pos.z - entities.exit.position.z;
 			float dist_sq = dx * dx + dz * dz;
 
+			// Si está cerca de la puerta, activamos fin de juego
 			if (dist_sq < 1.0f) {
-				// TODO: Mensaje de fin?
-				printf("HAS GANADO\n");
-			}
-			else {
-				// TODO: Mover la puerta?
+				game_over = true;
+				game_over_time = current_time;
 			}
 		}	
 	}
@@ -1694,7 +1694,7 @@ void renderGameUI(ImGuiIO& io) {
 			ImGuiWindowFlags_NoSavedSettings |
 			ImGuiWindowFlags_NoNav |
 			ImGuiWindowFlags_NoBackground)) {
-			ImGui::Text("has muerto");
+			ImGui::Text(player_health <= 0 ? "has muerto" : "has ganado");
 			ImGui::End();
 		}
 	}
@@ -1740,7 +1740,7 @@ void render_scene()
 
 	update_controls(delta_time, (float)current_time);
 
-	check_exit_condition(delta_time);
+	check_exit_condition(delta_time, (float)current_time);
 
 	///////// Actualizacion matrices M, V, P  /////////	
 	mat4 P, V, M;
