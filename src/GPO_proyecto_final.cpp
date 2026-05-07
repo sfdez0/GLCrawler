@@ -557,8 +557,17 @@ Entities load_entities_from_file(const char* filename, int maze_rows, float tile
 		}
 	}
 	
+	if (ent.keys.size() != 3 || !enemy_loaded || !exit_loaded) {
+		printf("ERROR - CARGA: Se esperaban 3 llaves, 1 enemigo y 1 salida. Encontrados: %zu llaves, %d enemigo, %d salida\n", ent.keys.size(), enemy_loaded, exit_loaded);
+		
+		// Cerramos el juego y liberamos recursos
+		glfwTerminate();
+		exit(EXIT_FAILURE);
+		return ent;
+	}
+
 	file.close();
-	printf("CARGA: Antorchas: %zu - Llaves: %zu - Enemigo: %d - Salida: %d\n", ent.torches.size(), ent.keys.size(), ent.enemy.x_2D != -1, ent.exit.x_2D != -1);
+	printf("CARGA: Antorchas: %zu - Llaves: %zu - Enemigo: %d - Salida: %d\n", ent.torches.size(), ent.keys.size(), enemy_loaded, exit_loaded);
 	return ent;
 }
 
@@ -578,7 +587,11 @@ objeto crear_escena(const char* map_path, int side_size){
 	// Cargamos el mapa desde el archivo .txt (1 = muro, 0 = vacío)
 	int* map = load_maze_from_file(map_path, side_size);
 	if (map == nullptr) {
-		printf("CARGA: Error - No se pudo cargar el mapa del laberinto\n");
+		printf("ERROR - CARGA: No se pudo cargar el mapa del laberinto: %s\n", map_path);
+
+		// Cerramos el juego y liberamos recursos
+		glfwTerminate();
+		exit(EXIT_FAILURE);
 		return obj;
 	}
 	
