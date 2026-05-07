@@ -105,6 +105,10 @@ bool loading_frame_shown = false; // Indica si ya se mostró el mensaje de carga
 const char* pending_map_path = nullptr;
 int pending_side_size = 0;
 
+// Variables de fin
+bool game_over = false;
+double game_over_time = 0.0;
+
 // Variables de control de intensidad de los mapas de texturas
 float displacement_intensity = 1.0f;  // Intensidad del desplazamiento (0.0 - 2.0)
 float ao_intensity = 1.0f;  // Intensidad del ambient occlusion (0.0 - 2.0)
@@ -181,6 +185,10 @@ struct Enemy {
 	vec3 position;
 	// Rotación en el eje Y en el mundo 3D
 	float rot_y;
+	// Tiempo del último ataque para controlar el cooldown
+	float last_attack_time = 0.0f;
+	// Tiempo de cooldown entre ataques (en segundos)
+	float attack_cooldown = 1.5f;
 	// Camino actual hacia el objetivo
 	std::vector<vec3> path;
 	// Siguiente waypoint a seguir
@@ -1065,6 +1073,8 @@ void reset_scene(const char* map_path, int side_size) {
 	player_health = 100;
 	player_stamina = MAX_STAMINA;
 	player_keys = 0;
+	game_over = false;
+	game_over_time = 0.0;
 
 	cam_pos = vec3(-26.0f, 3.0f, -26.0f);
 	cam_target = vec3(0.0f, 0.0f, 1.0f);
@@ -1323,7 +1333,13 @@ void update_exit(const mat4& P, const mat4& V) {
  * @param P Matriz de proyección actual
  * @param V Matriz de vista actual
  */
-void update_enemy(float delta_time, const mat4& P, const mat4& V) {
+void update_enemy(float delta_time, float current_time, const mat4& P, const mat4& V) {
+	// Si el juego ha terminado, fijamos la posición del enemigo
+	if (game_over) {
+		enemy::draw(entities.enemy.position, 2.0f, entities.enemy.rot_y, P, V, cam_pos);
+		return;
+	}
+
 	// Si no hay ruta, o se ha llegado al final de la actual, calculamos una nueva ruta hacia el jugador
 	if (entities.enemy.path.empty() || entities.enemy.pathIndex >= entities.enemy.path.size()) {
 		entities.enemy.path = enemyPathfinder->findPath(entities.enemy.position.x, entities.enemy.position.z, cam_pos.x, cam_pos.z);
@@ -1350,12 +1366,30 @@ void update_enemy(float delta_time, const mat4& P, const mat4& V) {
 		}
 
 		// Mantenemos altura fija, y rotación hacia el jugador
+		entities.enemy.position.y = enemyY;
 		float to_player_x = cam_pos.x - entities.enemy.position.x;
 		float to_player_z = cam_pos.z - entities.enemy.position.z;
-		if ((to_player_x * to_player_x + to_player_z * to_player_z) > 0.001f) {
+		float distance_to_player = (to_player_x * to_player_x + to_player_z * to_player_z);
+		if (distance_to_player > 0.005f) {
 			entities.enemy.rot_y = atan2(to_player_x, to_player_z);
 		}
-		entities.enemy.position.y = enemyY;
+
+		// Si el enemigo está lo bastante cerca, reducimos la salud del jugador (con cooldown)
+		if (distance_to_player < 3.5f) {
+			// Verificamos si ha pasado el tiempo de cooldown
+			if (current_time - entities.enemy.last_attack_time > entities.enemy.attack_cooldown) {
+				entities.enemy.last_attack_time = current_time;
+				player_health -= 10;
+
+				// Si la vida llega a 0, el juego termina
+				if (player_health <= 0) {
+					player_health = 0;
+
+					game_over = true;
+					game_over_time = current_time;
+				}
+			}
+		}
 	}
 
 	// Dibujamos el enemigo en su nueva posición
@@ -1402,6 +1436,8 @@ void renderSettingsPanel() {
 			show_settings = false;
 			show_loading = true;
 			loading_frame_shown = false;
+			game_over = false;
+			game_over_time = 0.0;
 
 			pending_reset = true;
 			pending_map_path = "bin/data/maze_map.txt";
@@ -1412,6 +1448,8 @@ void renderSettingsPanel() {
 			show_settings = false;
 			show_loading = true;
 			loading_frame_shown = false;
+			game_over = false;
+			game_over_time = 0.0;
 
 			pending_reset = true;
 			pending_map_path = "bin/data/maze_map_2.txt";
@@ -1422,6 +1460,8 @@ void renderSettingsPanel() {
 			show_settings = false;
 			show_loading = true;
 			loading_frame_shown = false;
+			game_over = false;
+			game_over_time = 0.0;
 
 			pending_reset = true;
 			pending_map_path = "bin/data/maze_map_3.txt";
@@ -1633,6 +1673,21 @@ void renderGameUI(ImGuiIO& io) {
             ImGui::End();
         }
     }
+
+	// Mensaje de fin de partida centrado
+	if (game_over && !show_loading) {
+		ImGui::SetNextWindowPos(ImVec2(SCR_W / 2.0f, SCR_H / 2.0f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+		if (ImGui::Begin("Game Over", nullptr,
+			ImGuiWindowFlags_NoDecoration |
+			ImGuiWindowFlags_NoMove |
+			ImGuiWindowFlags_AlwaysAutoResize |
+			ImGuiWindowFlags_NoSavedSettings |
+			ImGuiWindowFlags_NoNav |
+			ImGuiWindowFlags_NoBackground)) {
+			ImGui::Text("has muerto");
+			ImGui::End();
+		}
+	}
 }
 
 /**
@@ -1668,6 +1723,10 @@ void render_scene()
 	double current_time = glfwGetTime();
 	double delta_time = current_time - last_frame_time;
 	last_frame_time = current_time;
+	if (game_over) {
+		delta_time = 0.0;
+		current_time = game_over_time;
+	}
 
 	update_controls(delta_time);
 
@@ -1695,7 +1754,7 @@ void render_scene()
 
 	update_exit(P, V);
 
-	update_enemy(delta_time, P, V);
+	update_enemy(delta_time, current_time, P, V);
 
 	lighting::upload_to_shader(prog); // Incluye glUseProgram(prog);
 
@@ -1718,7 +1777,7 @@ void render_scene()
 	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 	
 	// Mostramos/ocultamos el cursor cuando hay menú abierto
-	if (show_settings) {
+	if (show_settings || game_over) {
 		glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 	} else {
 		glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
@@ -1827,6 +1886,13 @@ void ResizeCallback(GLFWwindow* window, int width, int height)
  */
 static void KeyCallback(GLFWwindow* window, int key, int code, int action, int mode)
 {
+	if (game_over) {
+		if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
+			show_settings = true;
+		}
+		return;
+	}
+
 	// Si ImGui está mostrando el menú de configuración, no procesamos movimientos
 	if (show_settings) {
 		// Solo procesamos ESC para cerrar el menú
@@ -1886,7 +1952,7 @@ static void KeyCallback(GLFWwindow* window, int key, int code, int action, int m
 static void MouseCallback(GLFWwindow* window, double xpos, double ypos)
 {
 	// Si ImGui está mostrando el menú de configuración, no procesamos movimientos
-	if (show_settings) {
+	if (show_settings || game_over) {
 		// Actualizamos la posición del ratón para evitar saltos al cerrar el menú
 		last_mouse_x = xpos;
 		last_mouse_y = ypos;
