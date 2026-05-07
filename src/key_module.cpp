@@ -137,8 +137,10 @@ namespace {
             for (int i = 0; i < numLights; i++){
                 // Vector luz-fragmento y su distancia
                 vec3 Lvec = lightPositions[i] - FragPos;
-                float dist = length(Lvec);
-                vec3 L = Lvec / max(dist, 0.0001); // Normalizado, evitando /0
+                float light_dist = length(Lvec);
+                if (light_dist > light_range + light_soft) continue; // Si el fragmento está fuera del rango, saltamos esta luz
+
+                vec3 L = Lvec / max(light_dist, 0.0001); // Normalizado, evitando /0
 
                 // Ángulo luz-normal para la difusa
                 float NdotL = max(dot(N, L), 0.0);
@@ -154,8 +156,8 @@ namespace {
                 vec3 specComp = F * specular;
 
                 // Atenuación con la distancia
-                float cutoff = 1.0 - smoothstep(light_range - light_soft, light_range, dist);
-                float att = cutoff / (1.0 + 0.15 * dist + 0.20 * dist * dist);
+                float cutoff = 1.0 - smoothstep(light_range - light_soft, light_range, light_dist);
+                float att = cutoff / (1.0 + 0.15 * light_dist + 0.20 * light_dist * light_dist);
 
                 // Contribución total de esta luz al fragmento
                 vec3 contrib = (diffuseColor + specComp) * NdotL * lightColors[i] * att;

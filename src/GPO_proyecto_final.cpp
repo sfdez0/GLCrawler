@@ -326,6 +326,8 @@ const char* fragment_prog = GLSL(
 		for(int i = 0; i < numLights; i++){
 			vec3 L = lightPositions[i] - FragPos;
 			float light_dist = length(L);  // Distancia entre la luz y el fragmento
+			if (light_dist > light_range + light_soft) continue; // Si el fragmento está fuera del rango, saltamos esta luz
+
 			L = normalize(L);
 
 			//Difusa

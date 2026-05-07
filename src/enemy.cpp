@@ -67,6 +67,8 @@ namespace enemy {
                 for(int i = 0; i < numLights; i++){
                     vec3 L = lightPositions[i] - FragPos;
                     float light_dist = length(L);
+                    if (light_dist > light_range + light_soft) continue; // Si el fragmento está fuera del rango, saltamos esta luz
+
                     L = normalize(L);
 
                     float diffuse = max(dot(N,L), 0.0);

@@ -114,7 +114,9 @@ namespace {
 
             for (int i = 0; i < numLights; i++){
                 vec3 L = lightPositions[i] - FragPos;
-                float dist = length(L);
+                float light_dist = length(L);
+                if (light_dist > light_range + light_soft) continue; // Si el fragmento está fuera del rango, saltamos esta luz
+
                 L = normalize(L);
 
                 // Difusa
@@ -125,8 +127,8 @@ namespace {
                 float specular = pow(max(dot(V, R), 0.0), shininess);
 
                 // Atenuación de la escena
-                float cutoff = 1.0 - smoothstep(light_range - light_soft, light_range, dist);
-                float att = cutoff / (1.0 + 0.2 * dist + 0.5 * dist * dist);
+                float cutoff = 1.0 - smoothstep(light_range - light_soft, light_range, light_dist);
+                float att = cutoff / (1.0 + 0.2 * light_dist + 0.5 * light_dist * light_dist);
 
                 // Parpadeo 
                 float intensity = 1.0;
