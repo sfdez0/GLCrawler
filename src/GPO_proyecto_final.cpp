@@ -315,6 +315,9 @@ const char* fragment_prog = GLSL(
 
 		vec3 V = normalize(camPos - FragPos);
 
+		// Normal geométrico que permite saber si la luz está de frente o detrás de la pared
+		vec3 geomNormal = normalize(TBN[2]);
+
 		vec3 result = ambient;
 
 		float specularPower = mix(32.0, 2.0, 1.0f);
@@ -330,12 +333,15 @@ const char* fragment_prog = GLSL(
 
 			L = normalize(L);
 
-			//Difusa
+			// Si la pared le da la espalda a la luz, la saltamos
+			if (dot(geomNormal, L) <= 0.0) continue;
+
+			// Difusa
 			float diffuse = max(dot(N,L), 0.0);
 
-			// Especular 
+			// Especular (si no hay luz difusa, no hay especular)
 			vec3 R = reflect(-L, N);
-			float specular = pow(max(dot(V, R), 0.0), specularPower) * 0.045;
+			float specular = diffuse <= 0.0f ? 0.0f : pow(max(dot(V, R), 0.0), specularPower) * 0.045;
 
 			// Calculos relativos a la luz del personaje
 			float light_cutoff = 1.0 - smoothstep(light_range - light_soft, light_range, light_dist); // Factor de atenuación basado en la distancia
