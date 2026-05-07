@@ -476,8 +476,8 @@ Entities load_entities_from_file(const char* filename, int maze_rows, float tile
 
 		// Leemos según el formato esperado (tipo, x, y, dir)
 		if (iss >> type && iss >> comma && comma == ',' // tipo,
-			&& iss >> x_2D && iss >> comma && comma == ',' // x,
-			&& iss >> y_2D) { // y
+			&& iss >> y_2D && iss >> comma && comma == ',' // y, (fila)
+			&& iss >> x_2D) { // x, (columna)
 			// Diferenciamos según el tipo de entidad
 			switch (type){
 				case 'a':
