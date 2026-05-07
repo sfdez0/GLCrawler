@@ -4,42 +4,59 @@
  * ATG, 2019
  */
 
-#include <GpO.h>
 #include <vector>
-#include <maze.h>
 #include <fstream>
 #include <sstream>
 #include <iostream>
 #include <imgui.h>
 #include <backends/imgui_impl_glfw.h>
 #include <backends/imgui_impl_opengl3.h>
+
+#include <GpO.h>
 #include <GPO_assimp_aux.h>
-#include <flame.h>
-#include <lighting.h>
-#include <torch_module.h>
-#include <door.h>
-#include <key_module.h>
-#include <enemy.h>
-#include <ParticleEmitter.h>
-#include <pathfinding.h>
+
+#include "maze.h"
+#include "flame.h"
+#include "lighting.h"
+#include "torch_module.h"
+#include "door.h"
+#include "key_module.h"
+#include "enemy.h"
+#include "ParticleEmitter.h"
+#include "pathfinding.h"
 
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
-////////////     VARIABLES GLOBALES 
+////////////     VARIABLES 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/* -- Variables OpenGL -- */
 // Tamaño inicial ventana
 int ANCHO = 800, ALTO = 600; 
 
 // Título de la ventana
 const char* prac = "OpenGL (GpO)"; 
 
+GLFWwindow* window;
+GLuint prog = 0;
+GLuint tex_brick = 0;
+GLuint tex_normal = 0;
+GLuint tex_displacement = 0;
+GLuint tex_ao = 0;
+objeto escena_cubica;
+GLuint escena_vbo_pos = 0;
+GLuint escena_vbo_uv = 0;
+GLuint escena_vbo_norm = 0;
+GLuint escena_vbo_tan = 0;
+
+/* -- Variables de juego -- */
 // Puntero a la clase Maze que representa el mapa del laberinto
 Maze* maze = nullptr; 
 
 // Modulo del pathfinder 
 PathfindingModule* enemyPathfinder = nullptr;
 
-// Sistema de partículas global, encargado de gestionar todas las partículas del juego
+// Sistema de partículas global
 ParticleSystem particleSystem;
 
 // Mapa por defecto
@@ -55,6 +72,42 @@ int player_keys = 0;
 const float MAX_MANA = 100.0f; // Mana máxima
 const float MANA_DRAIN_RATE = 15.0f; // Mana consumido por segundo
 const float MANA_REGEN_RATE = 8.0f; // Mana regenerada por segundo
+
+// Variables de cámara
+vec3 cam_pos = vec3(-26.0f, 3.0f, -26.0f); // Posición inicial de la cámara (observador)
+vec3 cam_target = vec3(0.0f, 0.0f, 1.0f); // Dirección hacia donde mira la cámara
+vec3 cam_up = vec3(0.0f, 1.0f, 0.0f); // Vector "arriba" de la cámara
+int cam_fov = 62; // Campo de visión inicial
+int cam_speed = 3; // Velocidad de movimiento de la cámara
+int cam_run_speed = 6; // Velocidad en carrera (Shift)
+float aspect_ratio = 4.0f / 3.0f; // Aspect ratio inicial (proporción de la ventana)
+float cam_radius = 0.5f; // Radio de colisión de la cámara (como esfera)
+
+// Variables de control con ratón
+double last_mouse_x = 0.0; // Última posición X del ratón
+double last_mouse_y = 0.0; // Última posición Y del ratón
+float mouse_sensitivity = 0.1f; // Sensibilidad
+float cam_yaw = 0.0f; // Rotación horizontal (grados)
+float cam_pitch = 0.0f; // Rotación vertical (grados)
+
+// Variables de control con teclado
+bool keys_pressed[7] = {false, false, false, false, false, false, false}; // W, S, D, A, Q, E, Shift
+double last_frame_time = 0.0; // Tiempo del último frame
+
+// Variables de ImGui
+bool show_stats = true;
+bool show_settings = false;
+
+// Variables de control de reinicio (cambio de mapa)
+bool show_loading = false; // Indica si se debe mostrar el mensaje de carga
+bool pending_reset = false; // Indica si hay un reset pendiente
+bool loading_frame_shown = false; // Indica si ya se mostró el mensaje de carga
+const char* pending_map_path = nullptr;
+int pending_side_size = 0;
+
+// Variables de control de intensidad de los mapas de texturas
+float displacement_intensity = 1.0f;  // Intensidad del desplazamiento (0.0 - 2.0)
+float ao_intensity = 1.0f;  // Intensidad del ambient occlusion (0.0 - 2.0)
 
 /**
  * Estructura para almacenar datos de antorchas
@@ -248,7 +301,7 @@ const char* fragment_prog = GLSL(
 		ao = mix(1.0, ao, ao_intensity * 0.5);
 
 		// El ambient ahora incluye el AO
-		vec3 ambient = texColor * (0.05 * ao);
+		vec3 ambient = texColor * (0.025 * ao);
 
 		vec3 V = normalize(camPos - FragPos);
 
@@ -306,21 +359,8 @@ const char* fragment_prog = GLSL(
 
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
-/////////////////////   RENDER CODE AND DATA
+////////////     CARGA DE DATOS
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-GLFWwindow* window;
-GLuint prog = 0;
-GLuint tex_brick = 0;
-GLuint tex_normal = 0;
-GLuint tex_displacement = 0;
-GLuint tex_ao = 0;
-objeto escena_cubica;
-GLuint escena_vbo_pos = 0;
-GLuint escena_vbo_uv = 0;
-GLuint escena_vbo_norm = 0;
-GLuint escena_vbo_tan = 0;
-
 
 /**
  * Función para cargar el mapa del laberinto desde un archivo .txt
@@ -523,12 +563,13 @@ Entities load_entities_from_file(const char* filename, int maze_rows, float tile
 }
 
 /**
- * Función para crear el escenario del laberinto
- * Genera cubos para cada pared del mapa 2D
+ * Función para crear el escenario del laberinto generando cubos para cada pared del mapa 2D.
+ * @param map_path ruta del archivo .txt con el mapa del laberinto y datos de las entidades
+ * @param side_size tamaño lateral del mapa (cuadrado)
  * @return objeto con VAO y número de vértices para renderizar el escenario del laberinto
  */
 objeto crear_escena(const char* map_path, int side_size){
-	objeto obj;
+	objeto obj = {};
 	GLuint VAO;
 	
 	// Creamos el laberinto con filas/columnas y tamaño de celda 4.0 unidades
@@ -568,8 +609,8 @@ objeto crear_escena(const char* map_path, int side_size){
 	}
 
 	// Cada cubo tiene 36 vértices (6 caras x 2 triángulos x 3 vértices)
-	// Calculamos el número total de vértices necesarios para todas las paredes + 1 suelo
-	int total_vertices = (wall_count + 1) * 36;
+	// Calculamos el número total de vértices necesarios para todas las paredes + 1 suelo + 1 techo
+	int total_vertices = (wall_count + 2) * 36;
 
 	// Creamos arrays para posiciones y colores de los vértices
 	GLfloat* pos_data = new GLfloat[total_vertices * 3];
@@ -733,6 +774,32 @@ objeto crear_escena(const char* map_path, int side_size){
 		ti += 3;
 	}
 
+	// Copiamos los vértices del cubo unitario, escalándolos y trasladándolos a su posición
+	for (int k = 0; k < 36; k++){
+		int v_index = vertex_index; // Índice para el vértice actual
+		pos_data[v_index] = cube_vertices[k][0] * scale_xz;
+		pos_data[v_index + 1] = cube_vertices[k][1] * scale_y + tile_size * 1.5; // Altura del techo
+		pos_data[v_index + 2] = cube_vertices[k][2] * scale_xz;
+		vertex_index += 3;
+
+		// Color del techo: gris oscuro (0.4, 0.4, 0.4)
+		int face_vert = k % 6;
+		uv_data[ui] = face_uv[face_vert][0];
+		uv_data[ui + 1] = face_uv[face_vert][1];
+		ui += 2;
+
+		int face = k / 6;
+		normal_data[ni] = cube_normals[face][0];
+		normal_data[ni + 1] = cube_normals[face][1];
+		normal_data[ni + 2] = cube_normals[face][2];
+		ni += 3;
+
+		tangent_data[ti] = cube_tangents[face][0];
+		tangent_data[ti + 1] = cube_tangents[face][1];
+		tangent_data[ti + 2] = cube_tangents[face][2];
+		ti += 3;
+	}
+
 	// Mandamos posiciones en un VBO
 	glGenBuffers(1, &escena_vbo_pos); 
 	glBindBuffer(GL_ARRAY_BUFFER, escena_vbo_pos);
@@ -796,6 +863,103 @@ objeto crear_escena(const char* map_path, int side_size){
 	obj.Nv = total_vertices;
 	return obj;
 }
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////     FUNCIONES DE INICIALIZACIÓN
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/**
+ * Función para inicializar recursos de renderizado
+ */
+void init_render_resources() {
+	glEnable(GL_DEPTH_TEST);
+
+	// Compilar Shaders
+	GLuint VertexShaderID = compilar_shader(vertex_prog, GL_VERTEX_SHADER);
+	GLuint FragmentShaderID = compilar_shader(fragment_prog, GL_FRAGMENT_SHADER);
+
+	// Enlazar sharders en el programa final
+	prog = glCreateProgram();
+	glAttachShader(prog, VertexShaderID);  
+	glAttachShader(prog, FragmentShaderID);
+	glLinkProgram(prog); 
+	check_errores_programa(prog);
+
+	// Limpieza final de los shaders una vez compilado el programa
+	glDetachShader(prog, VertexShaderID);  
+	glDeleteShader(VertexShaderID);
+	glDetachShader(prog, FragmentShaderID);  
+	glDeleteShader(FragmentShaderID);
+
+	// Alternativamente usar la funci�n Compile_Link_Shaders().
+	//	prog = Compile_Link_Shaders(vertex_prog, fragment_prog); 
+
+	// Indicamos que programa vamos a usar 
+	glUseProgram(prog);
+	tex_brick = cargar_textura("bin/data/brick.jpg", GL_TEXTURE0);
+	transfer_int("tex", 0);
+
+	tex_normal = cargar_textura("bin/data/brick_n.jpg", GL_TEXTURE1);
+	transfer_int("normalMap", 1);
+
+	tex_displacement = cargar_textura("bin/data/brick_d.jpg", GL_TEXTURE2);
+	transfer_int("displacementMap", 2);
+
+	tex_ao = cargar_textura("bin/data/brick_ao.jpg", GL_TEXTURE3);
+	transfer_int("aoMap", 3);
+
+	// Inicializamos módulos
+	torch_module::init(); // Antorchas
+	door::init(); // Puerta de salida
+	enemy::init(); // Enemigo
+	flame::init(); // Llamas de las antorchas
+	key_module::init(); // Llaves
+	particleSystem.init(); // Sistema de partículas
+
+	// Volver al programa principal
+	glUseProgram(prog);
+}
+
+/**
+ * Función para inicializar la escena
+ * Prepara los datos de los objetos a dibujar, los envía a la GPU
+ * Compila los programas a ejecutar en la tarjeta gráfica: vertex shader, fragment shader
+ * Configura opciones generales de render de OpenGL
+ */
+void init_scene() {
+	int width, height;
+    glfwGetFramebufferSize(window, &width, &height);
+    glViewport(0, 0, width, height); 
+    
+	escena_cubica = crear_escena(default_map_path, default_side_size);  // Crear el escenario del laberinto con todas las paredes
+
+	init_render_resources();
+}
+
+/**
+ * Función para inicializar ImGui
+ */
+void init_imgui() {
+	// Configuración básica de ImGui
+	IMGUI_CHECKVERSION();
+
+	// Creamos el contexto
+	ImGui::CreateContext();
+	ImGuiIO& io = ImGui::GetIO();
+
+	// Estilo de color oscuro
+	ImGui::StyleColorsDark();
+
+	// Configuramos ImGui para que use GLFW y OpenGL3
+	ImGui_ImplGlfw_InitForOpenGL(window, true);
+	ImGui_ImplOpenGL3_Init("#version 330 core");
+}
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////     FUNCIONES DE DESTRUCCIÓN
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /**
  * Función para liberar buffers de GPU del escenario actual
@@ -862,121 +1026,13 @@ void destroy_render_resources() {
 	}
 }
 
-/**
- * Función para inicializar recursos de renderizado
- */
-void init_render_resources() {
-	glEnable(GL_DEPTH_TEST);
 
-	// Compilar Shaders
-	GLuint VertexShaderID = compilar_shader(vertex_prog, GL_VERTEX_SHADER);
-	GLuint FragmentShaderID = compilar_shader(fragment_prog, GL_FRAGMENT_SHADER);
-
-	// Enlazar sharders en el programa final
-	prog = glCreateProgram();
-	glAttachShader(prog, VertexShaderID);  
-	glAttachShader(prog, FragmentShaderID);
-	glLinkProgram(prog); 
-	check_errores_programa(prog);
-
-	// Limpieza final de los shaders una vez compilado el programa
-	glDetachShader(prog, VertexShaderID);  
-	glDeleteShader(VertexShaderID);
-	glDetachShader(prog, FragmentShaderID);  
-	glDeleteShader(FragmentShaderID);
-
-	// Alternativamente usar la funci�n Compile_Link_Shaders().
-	//	prog = Compile_Link_Shaders(vertex_prog, fragment_prog); 
-
-	// Indicamos que programa vamos a usar 
-	glUseProgram(prog);
-	tex_brick = cargar_textura("bin/data/brick.jpg", GL_TEXTURE0);
-	transfer_int("tex", 0);
-
-	tex_normal = cargar_textura("bin/data/brick_n.jpg", GL_TEXTURE1);
-	transfer_int("normalMap", 1);
-
-	tex_displacement = cargar_textura("bin/data/brick_d.jpg", GL_TEXTURE2);
-	transfer_int("displacementMap", 2);
-
-	tex_ao = cargar_textura("bin/data/brick_ao.jpg", GL_TEXTURE3);
-	transfer_int("aoMap", 3);
-
-	// Inicializamos módulos
-	torch_module::init(); // Antorchas
-	door::init(); // Puerta de salida
-	enemy::init(); // Enemigo
-	flame::init(); // Llamas de las antorchas
-	key_module::init(); // Llaves
-	particleSystem.init(); // Sistema de partículas
-
-	// Volver al programa principal
-	glUseProgram(prog);
-}
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////     FUNCIONES DE REINICIO
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /**
- * Función para enlazar las texturas de la escena
- */
-static void bind_scene_textures() {
-	glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, tex_brick);
-	glActiveTexture(GL_TEXTURE1); glBindTexture(GL_TEXTURE_2D, tex_normal);
-	glActiveTexture(GL_TEXTURE2); glBindTexture(GL_TEXTURE_2D, tex_displacement);
-	glActiveTexture(GL_TEXTURE3); glBindTexture(GL_TEXTURE_2D, tex_ao);
-}
-
-/**
- * Función para inicializar la escena
- * Prepara los datos de los objetos a dibujar, los envía a la GPU
- * Compila los programas a ejecutar en la tarjeta gráfica: vertex shader, fragment shader
- * Configura opciones generales de render de OpenGL
- */
-void init_scene() {
-	int width, height;
-    glfwGetFramebufferSize(window, &width, &height);
-    glViewport(0, 0, width, height); 
-    
-	escena_cubica = crear_escena(default_map_path, default_side_size);  // Crear el escenario del laberinto con todas las paredes
-
-	init_render_resources();
-}
-
-
-// Variables para la cámara
-vec3 cam_pos = vec3(-26.0f, 3.0f, -26.0f); // Posición inicial de la cámara (observador)
-vec3 cam_target = vec3(0.0f, 0.0f, 1.0f); // Dirección hacia donde mira la cámara
-vec3 cam_up = vec3(0.0f, 1.0f, 0.0f); // Vector "arriba" de la cámara
-int cam_fov = 62; // Campo de visión inicial
-int cam_speed = 3; // Velocidad de movimiento de la cámara
-int cam_run_speed = 6; // Velocidad en carrera (Shift)
-float aspect_ratio = 4.0f / 3.0f; // Aspect ratio inicial (proporción de la ventana)
-float cam_radius = 0.5f; // Radio de colisión de la cámara (como esfera)
-
-// Variables para control con ratón
-double last_mouse_x = 0.0; // Última posición X del ratón
-double last_mouse_y = 0.0; // Última posición Y del ratón
-float mouse_sensitivity = 0.1f; // Sensibilidad
-float cam_yaw = 0.0f; // Rotación horizontal (grados)
-float cam_pitch = 0.0f; // Rotación vertical (grados)
-
-// Variables para control de teclado
-bool keys_pressed[7] = {false, false, false, false, false, false, false}; // W, S, D, A, Q, E, Shift
-double last_frame_time = 0.0; // Tiempo del último frame
-
-// Variables de ImGui
-bool show_stats = true;
-bool show_settings = false;
-bool show_loading = false; // Indica si se debe mostrar el mensaje de carga
-bool pending_reset = false; // Indica si hay un reset pendiente
-bool loading_frame_shown = false; // Indica si ya se mostró el mensaje de carga
-const char* pending_map_path = nullptr;
-int pending_side_size = 0;
-
-// Variables para controlar la intensidad de los mapas de texturas
-float displacement_intensity = 1.0f;  // Intensidad del desplazamiento (0.0 - 2.0)
-float ao_intensity = 1.0f;  // Intensidad del ambient occlusion (0.0 - 2.0)
-
-/**
- * Función para reiniciar por completo la escena y cargar un nuevo mapa
+ * Función para reiniciar por completo la escena y cargar un nuevo mapa (sin reiniciar la aplicación)
  */
 void reset_scene(const char* map_path, int side_size) {
 	destroy_scene_gpu();
@@ -1008,27 +1064,318 @@ void reset_scene(const char* map_path, int side_size) {
 	init_render_resources();
 }
 
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////     FUNCIONES AUXILIARES 
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 /**
- * Función para inicializar ImGui
+ * Función para verificar si la cámara puede moverse a una nueva posición sin colisionar con las paredes del laberinto
+ * @param new_pos Nueva posición a la que se quiere mover la cámara
+ * @return true si la cámara puede moverse a la nueva posición sin colisiones, false
  */
-void init_imgui() {
-	// Configuración básica de ImGui
-	IMGUI_CHECKVERSION();
-
-	// Creamos el contexto
-	ImGui::CreateContext();
-	ImGuiIO& io = ImGui::GetIO();
-
-	// Estilo de color oscuro
-	ImGui::StyleColorsDark();
-
-	// Configuramos ImGui para que use GLFW y OpenGL3
-	ImGui_ImplGlfw_InitForOpenGL(window, true);
-	ImGui_ImplOpenGL3_Init("#version 330 core");
+bool can_move(vec3& new_pos) {
+	// Comprobamos si la nueva posición colisionaría con alguna bounding box
+	return !maze->checkCollisionWithBoundingBoxes(new_pos, cam_radius);
 }
 
 /**
- * Función para renderizar el panel de configuración
+ * Función para comprobar las condiciones de salida.
+ * Si porta las tres llaves pero está lejos, se activa el cambio de rotación de la puerta.
+ * Si porta las tres llaves y está cerca, se acaba el juego.
+ */
+void check_exit_condition(float delta_time) {
+	if (player_keys >= 3) {
+		if (&entities.exit.position) {
+			float dx = cam_pos.x - entities.exit.position.x;
+			float dz = cam_pos.z - entities.exit.position.z;
+			float dist_sq = dx * dx + dz * dz;
+
+			if (dist_sq < 1.0f) {
+				// TODO: Mensaje de fin?
+				printf("HAS GANADO\n");
+			}
+			else {
+				// TODO: Mover la puerta?
+			}
+		}	
+	}
+}
+
+/**
+ * Función para comprobar si el jugador está lo bastante cerca para recoger una llave
+ * @param k Llave a comprobar
+ */
+void check_key_pickup(Keys& k) {
+    // Radio de recogida　
+    const float pickup_radius = 2.0f;
+    const float pickup_radius_sq = pickup_radius * pickup_radius;
+
+	float dx = cam_pos.x - k.position.x;
+	float dz = cam_pos.z - k.position.z;
+	float dist_sq = dx * dx + dz * dz;
+
+	if (dist_sq < pickup_radius_sq) {
+		k.collected = true;
+		player_keys++;
+
+		// Burst de partículas en la posición visible de la llave
+		vec3 burst_pos = key_module::compute_light_pos(k.position);
+		const int BURST_COUNT = 300;
+		for (int i = 0; i < BURST_COUNT; i++) {
+			particleSystem.emit(Particle::CreatePickup(burst_pos));
+		}
+	}
+}
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////     FUNCIONES RENDER Y ACTUALIZACIÓN DE LA ESCENA 
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/**
+ * Función para enlazar las texturas de la escena
+ */
+static void bind_scene_textures() {
+	glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, tex_brick);
+	glActiveTexture(GL_TEXTURE1); glBindTexture(GL_TEXTURE_2D, tex_normal);
+	glActiveTexture(GL_TEXTURE2); glBindTexture(GL_TEXTURE_2D, tex_displacement);
+	glActiveTexture(GL_TEXTURE3); glBindTexture(GL_TEXTURE_2D, tex_ao);
+}
+
+/**
+ * Función para actualizar la posición de la cámara cada frame.
+ * @param delta_time Tiempo transcurrido desde el último frame
+ */
+void update_controls(float delta_time) {
+	// Detectamos si el jugador se está moviendo (WASD)
+	bool is_moving = keys_pressed[0] || keys_pressed[1] || keys_pressed[2] || keys_pressed[3];
+
+	// Solo puede correr si: pulsa Shift + se está moviendo + tiene mana
+	bool shift_held = keys_pressed[6];
+	bool can_run = shift_held && is_moving && player_mana > 0.0f;
+
+	// Establecemos la velocidad según si está corriendo o no
+	float speed = can_run ? cam_run_speed : cam_speed;
+
+	// Actualizamos la mana
+	if (can_run) {
+		player_mana -= MANA_DRAIN_RATE * (float)delta_time;
+		if (player_mana < 0.0f) player_mana = 0.0f;
+	} else {
+		player_mana += MANA_REGEN_RATE * (float)delta_time;
+		if (player_mana > MAX_MANA) player_mana = MAX_MANA;
+	}
+
+	// Calculamos la distancia a mover en este frame basada en el delta y la velocidad de la cámara
+	float movement_distance = speed * (float)delta_time;
+
+	// W: Adelante
+	if (keys_pressed[0]) {
+		vec3 move = glm::normalize(vec3(cam_target.x, 0.0f, cam_target.z));
+		vec3 new_pos = cam_pos + move * movement_distance;
+		if (can_move(new_pos)) {
+			cam_pos = new_pos;
+		}
+	}
+	// S: Atrás
+	if (keys_pressed[1]) {
+		vec3 move = glm::normalize(vec3(cam_target.x, 0.0f, cam_target.z));
+		vec3 new_pos = cam_pos - move * movement_distance;
+		if (can_move(new_pos)) {
+			cam_pos = new_pos;
+		}
+	}
+	// D: Derecha
+	if (keys_pressed[2]) {
+		vec3 right = glm::normalize(glm::cross(cam_target, cam_up));
+		vec3 new_pos = cam_pos + right * movement_distance;
+		if (can_move(new_pos)) {
+			cam_pos = new_pos;
+		}
+	}
+	// A: Izquierda
+	if (keys_pressed[3]) {
+		vec3 right = glm::normalize(glm::cross(cam_target, cam_up));
+		vec3 new_pos = cam_pos - right * movement_distance;
+		if (can_move(new_pos)) {
+			cam_pos = new_pos;
+		}
+	}
+	// Q: Arriba
+	if (keys_pressed[4]) {
+		vec3 new_pos = cam_pos + cam_up * movement_distance;
+		if (can_move(new_pos)) {
+			cam_pos = new_pos;
+		}
+	}
+	// E: Abajo
+	if (keys_pressed[5]) {
+		vec3 new_pos = cam_pos - cam_up * movement_distance;
+		if (can_move(new_pos)) {
+			cam_pos = new_pos;
+		}
+	}
+}
+
+/**
+ * Función para actualizar el sistema de iluminación cada frame.
+ * Actualiza la luz del jugador, de las antorchas, y de las llaves (si no han sido recogidas)
+ */
+void update_lighting(){
+	// Construir array de luces
+	lighting::clear();
+
+	vec3 torchColor = vec3(1.0f, 0.7f, 0.35f);
+
+	// Luz del jugador
+	lighting::add(cam_pos + vec3(0.0f, -0.5f, 0.0f), torchColor);
+	
+	// Luz de las antorchas
+	for(const Torch& t : entities.torches){
+		lighting::add(t.lightPos, torchColor);
+	}
+}
+
+/**
+ * Función para actualizar las antorchas (y las llamas) cada frame.
+ * Dibuja las antorchas, sus llamas y actualiza sus partículas
+ * @param delta_time Tiempo transcurrido desde el último frame
+ * @param P Matriz de proyección actual
+ * @param V Matriz de vista actual
+ */
+void update_torches(float delta_time, const mat4& P, const mat4& V) {
+	// Dibujamos antorchas según entidades cargadas del mapa
+	const float torch_scale = 0.6f;
+	for(Torch& t : entities.torches){
+		torch_module::draw(t.position, torch_scale, t.rot_y, P, V, cam_pos);
+
+		// La llama va por encima del torch + adelante (en la dirección del pasillo)
+		flame::draw(t.flamePos, 2.0f, P, V);
+
+		// Actualizamos las partículas de la antorcha
+		t.particleEmitter.update(delta_time, t.flamePos, particleSystem);
+	}
+}
+
+/**
+ * Función para actualizar las llaves cada frame.
+ * Añade la luz de las llaves no recogidas, dibuja las llaves, actualiza sus partículas y comprueba si el jugador las puede recoger
+ * @param delta_time Tiempo transcurrido desde el último frame
+ * @param current_time Tiempo actual
+ * @param P Matriz de proyección actual
+ * @param V Matriz de vista actual
+ */
+void update_keys(float delta_time, float current_time, const mat4& P, const mat4& V){
+	// Luz de las llaves
+	float keyT     = (float)glfwGetTime();
+	float keyPulse = 1.0f + 0.12f * sin(keyT * 0.9f) + 0.04f * sin(keyT * 2.6f);
+	vec3  keyColor = vec3(0.5f, 0.85f, 0.3f) * 1.8f * keyPulse;
+
+	// Luz dorada de las llaves (solo si no han sido recogidas)
+	for(const Keys& k : entities.keys){
+		if (!k.collected) {
+			lighting::add(k.lightPos, keyColor);
+		}
+	}
+
+	// Dibujamos llaves según entidades cargadas del mapa
+	for(Keys& k : entities.keys){
+		if (!k.collected) {
+			key_module::draw(k.position, 0.7f, (float)current_time, P, V, cam_pos);
+
+			// Actualizamos las partículas de la llave
+			k.particleEmitter.update(delta_time, k.lightPos, particleSystem);
+
+			// Comprobamos si el jugador está lo bastante cerca para recoger la llave
+			check_key_pickup(k);
+		}
+	}
+}
+
+/**
+ * Función para dibujar la puerta de salida cada frame.
+ * @param P Matriz de proyección actual
+ * @param V Matriz de vista actual
+ */
+void update_exit(const mat4& P, const mat4& V) {
+    door::draw(entities.exit.position, 2.0f, entities.exit.rot_y, P, V, cam_pos);
+}
+
+
+/**
+ * Función para actualizar el enemigo cada frame.
+ * Se calcula el movimiento del enemigo usando A* y se dibuja en su nueva posición.
+ * @param delta_time Tiempo transcurrido desde el último frame
+ * @param P Matriz de proyección actual
+ * @param V Matriz de vista actual
+ */
+void update_enemy(float delta_time, const mat4& P, const mat4& V) {
+	// Si no hay ruta, o se ha llegado al final de la actual, calculamos una nueva ruta hacia el jugador
+	if (entities.enemy.path.empty() || entities.enemy.pathIndex >= entities.enemy.path.size()) {
+		entities.enemy.path = enemyPathfinder->findPath(entities.enemy.position.x, entities.enemy.position.z, cam_pos.x, cam_pos.z);
+		entities.enemy.pathIndex = 0;
+	}
+
+	// Si hay una ruta, intentamos avanzar hacia el siguiente waypoint
+	if (!entities.enemy.path.empty() && entities.enemy.pathIndex < entities.enemy.path.size()) {
+		const vec3& waypoint = entities.enemy.path[entities.enemy.pathIndex];
+		float enemyY = entities.enemy.position.y; // Mantenemos altura fija
+		vec3 delta = vec3(waypoint.x - entities.enemy.position.x, 0.0f, waypoint.z - entities.enemy.position.z);
+		float distance = glm::length(vec2(delta.x, delta.z));
+		float enemySpeed = 1.5f;
+
+		// Diferenciamos la distancia al waypoint
+		if (distance < 0.05f) {
+			// Si estamos cerca, avanzamos al siguiente waypoint
+			entities.enemy.position = waypoint;
+			entities.enemy.pathIndex++;
+		} else {
+			// Si estamos lejos, continuamos avanzando hacia el waypoint actual
+			vec3 direction = glm::normalize(delta);
+			entities.enemy.position += direction * enemySpeed * (float)delta_time;
+		}
+
+		// Mantenemos altura fija, y rotación hacia el jugador
+		float to_player_x = cam_pos.x - entities.enemy.position.x;
+		float to_player_z = cam_pos.z - entities.enemy.position.z;
+		if ((to_player_x * to_player_x + to_player_z * to_player_z) > 0.001f) {
+			entities.enemy.rot_y = atan2(to_player_x, to_player_z);
+		}
+		entities.enemy.position.y = enemyY;
+	}
+
+	// Dibujamos el enemigo en su nueva posición
+	enemy::draw(entities.enemy.position, 2.0f, entities.enemy.rot_y, P, V, cam_pos);
+}
+
+/**
+ * Función para actualizar el sistema de partículas cada frame.
+ * Incluye cálculo dinamico de la posición NDC del icono de llaves para que las partículas de recogida 
+ * apunten siempre hacia el icono, independientemente del tamaño de la ventana.
+ * @param delta_time Tiempo transcurrido desde el último frame
+ * @param P Matriz de proyección actual
+ * @param V Matriz de vista actual
+ */
+void update_particles(float delta_time, const mat4& P, const mat4& V) {
+	// Calculamos la posición NDC del icono de llaves dinámicamente según el tamaño actual de la ventana
+	ImGuiIO& io_target = ImGui::GetIO();
+	float scr_w = io_target.DisplaySize.x;
+	float scr_h = io_target.DisplaySize.y;
+	particleSystem.pickup_target_ndc = vec2(
+		1.0f - 142.0f / scr_w,
+		1.0f - 76.0f / scr_h 
+	);
+
+	// Actualizamos sistema de partículas
+	particleSystem.update((float)delta_time);
+
+	// Dibujamos partículas
+	particleSystem.render(P, V);
+}
+
+/**
+ * Función para renderizar la interfaz de configuración.
  */
 void renderSettingsPanel() {
 	ImGuiIO& io = ImGui::GetIO();
@@ -1143,7 +1490,7 @@ void renderSettingsPanel() {
 }
 
 /**
- * Función para renderizar la interfaz del juego con ImGui
+ * Función para renderizar la interfaz del juego.
  * @param io Referencia a la estructura i/o de ImGui
  */
 void renderGameUI(ImGuiIO& io) {
@@ -1275,15 +1622,8 @@ void renderGameUI(ImGuiIO& io) {
     }
 }
 
-// Declaración adelantada de función
-bool can_move(vec3& new_pos);
-void check_key_pickup();
-void check_exit_condition(float delta_time);
-void update_enemy(float delta_time);
-
 /**
- * Función para renderizar la escena en cada frame
- * Limpia buffers, actualiza matrices de tranformación, posición de cámara, luces...
+ * Función para renderizar la escena en cada frame.
  */
 void render_scene()
 {
@@ -1311,123 +1651,21 @@ void render_scene()
 	glClearColor(0.0f, 0.0f, 0.0f, 0.0f); // Especifica color para el fondo oscuro (RGB+alfa)
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // Limpia buffers de color y profundidad
 
-	//Construir array de luces
-	lighting::clear();
-
-	vec3 torchColor = vec3(1.0f, 0.7f, 0.35f);
-
-	// Luz de las llaves
-	float keyT     = (float)glfwGetTime();
-	float keyPulse = 1.0f + 0.12f * sin(keyT * 0.9f) + 0.04f * sin(keyT * 2.6f);
-	vec3  keyColor = vec3(0.5f, 0.85f, 0.3f) * 1.8f * keyPulse;
-
-	float tile_size = maze->getTileSize();
-	float maze_center_xz = (maze->getColumns() * tile_size) / 2.0f;
-
-	// Luz del jugador
-	lighting::add(cam_pos + vec3(0.0f, -0.5f, 0.0f), torchColor);
-	
-	// Luz de las antorchas
-	for(const Torch& t : entities.torches){
-		lighting::add(t.lightPos, torchColor);
-	}
-
-	// Luz dorada de las llaves (solo si no han sido recogidas)
-	for(const Keys& k : entities.keys){
-		if (!k.collected) {
-			lighting::add(k.lightPos, keyColor);
-		}
-	}
-
-	// Calculamos delta time para movimiento suave (e independiente de FPS)
+	// Calculamos delta time para movimientos y animaciones suaves (e independiente de FPS)
 	double current_time = glfwGetTime();
 	double delta_time = current_time - last_frame_time;
 	last_frame_time = current_time;
 
-	// Detectamos si el jugador se está moviendo (WASD)
-	bool is_moving = keys_pressed[0] || keys_pressed[1] || keys_pressed[2] || keys_pressed[3];
-	bool shift_held = keys_pressed[6];
-
-	// Solo puede correr si: pulsa Shift + se está moviendo + tiene mana
-	bool can_run = shift_held && is_moving && player_mana > 0.0f;
-
-	// Establecemos la velocidad según si está corriendo o no
-	float speed = can_run ? cam_run_speed : cam_speed;
-
-	// Actualizamos la mana
-	if (can_run) {
-		player_mana -= MANA_DRAIN_RATE * (float)delta_time;
-		if (player_mana < 0.0f) player_mana = 0.0f;
-	} else {
-		player_mana += MANA_REGEN_RATE * (float)delta_time;
-		if (player_mana > MAX_MANA) player_mana = MAX_MANA;
-	}
-
-	// Calculamos la distancia a mover en este frame basada en el delta y la velocidad de la cámara
-	float movement_distance = speed * (float)delta_time;
-
-	// W: Adelante
-	if (keys_pressed[0]) {
-		vec3 move = glm::normalize(vec3(cam_target.x, 0.0f, cam_target.z));
-		vec3 new_pos = cam_pos + move * movement_distance;
-		if (can_move(new_pos)) {
-			cam_pos = new_pos;
-		}
-	}
-	// S: Atrás
-	if (keys_pressed[1]) {
-		vec3 move = glm::normalize(vec3(cam_target.x, 0.0f, cam_target.z));
-		vec3 new_pos = cam_pos - move * movement_distance;
-		if (can_move(new_pos)) {
-			cam_pos = new_pos;
-		}
-	}
-	// D: Derecha
-	if (keys_pressed[2]) {
-		vec3 right = glm::normalize(glm::cross(cam_target, cam_up));
-		vec3 new_pos = cam_pos + right * movement_distance;
-		if (can_move(new_pos)) {
-			cam_pos = new_pos;
-		}
-	}
-	// A: Izquierda
-	if (keys_pressed[3]) {
-		vec3 right = glm::normalize(glm::cross(cam_target, cam_up));
-		vec3 new_pos = cam_pos - right * movement_distance;
-		if (can_move(new_pos)) {
-			cam_pos = new_pos;
-		}
-	}
-	// Q: Arriba
-	if (keys_pressed[4]) {
-		vec3 new_pos = cam_pos + cam_up * movement_distance;
-		if (can_move(new_pos)) {
-			cam_pos = new_pos;
-		}
-	}
-	// E: Abajo
-	if (keys_pressed[5]) {
-		vec3 new_pos = cam_pos - cam_up * movement_distance;
-		if (can_move(new_pos)) {
-			cam_pos = new_pos;
-		}
-	}
-
-	check_key_pickup();
+	update_controls(delta_time);
 
 	check_exit_condition(delta_time);
 
 	///////// Actualizacion matrices M, V, P  /////////	
-	mat4 P, V, M, T, R, S;
-
-	P = perspective(glm::radians((float)cam_fov), aspect_ratio, 0.1f, 50.0f);  // FOV, aspect ratio, Znear, Zfar
-	
-	// El target es un punto adelante de la cámara en la dirección donde mira
-	vec3 target = cam_pos + cam_target;
-	V = lookAt(cam_pos, target, cam_up);  // Pos camara, Lookat relativo a dirección, head up
-	
-	// Matriz identidad para el cubo (sin transformaciones)
-	M = glm::mat4(1.0f);
+	mat4 P, V, M;
+	P = perspective(glm::radians((float)cam_fov), aspect_ratio, 0.1f, 50.0f);
+	vec3 target = cam_pos + cam_target; // Punto hacia el que mira la cámara
+	V = lookAt(cam_pos, target, cam_up); // Pos camara, Lookat relativo a dirección, head up
+	M = glm::mat4(1.0f); // Matriz identidad para el cubo (sin transformaciones)
 	
 	glUseProgram(prog);
 
@@ -1438,64 +1676,28 @@ void render_scene()
 	transfer_float("ao_intensity", ao_intensity);
 	transfer_float("time", (float)current_time);
 	
-	// Subir array de luces
-	lighting::upload_to_shader(prog);
+	update_lighting();
+
+	update_keys(delta_time, (float)current_time, P, V);
+
+	update_exit(P, V);
+
+	update_enemy(delta_time, P, V);
 
 	// Dibujamos el cubo del escenario
+	lighting::upload_to_shader(prog); // Incluye glUseProgram(prog);
+
 	bind_scene_textures();
 	glBindVertexArray(escena_cubica.VAO);             // Activamos VAO del cubo
 	glDrawArrays(GL_TRIANGLES, 0, escena_cubica.Nv);  // Dibujamos todos los triangulos del cubo
 	glBindVertexArray(0);                             // Desconectamos VAO
 
-	// Dibujamos antorchas según entidades cargadas del mapa
-	const float torch_scale = 0.6f;
-	for(Torch& t : entities.torches){
-		torch_module::draw(t.position, torch_scale, t.rot_y, P, V, cam_pos);
+	update_torches(delta_time, P, V);
 
-		// La llama va por encima del torch + adelante (en la dirección del pasillo)
-		flame::draw(t.flamePos, 2.0f, P, V);
+	update_particles(delta_time, P, V);
 
-		// Actualizamos las partículas de la antorcha
-		t.particleEmitter.update(delta_time, t.flamePos, particleSystem);
-	}
-
-	// Dibujamos llaves según entidades cargadas del mapa
-	for(Keys& k : entities.keys){
-		if (!k.collected) {
-			key_module::draw(k.position, 0.7f, (float)current_time, P, V, cam_pos);
-
-			// Actualizamos las partículas de la llave
-			k.particleEmitter.update(delta_time, k.lightPos, particleSystem);
-		}
-	}
-
-	if (&entities.exit) {
-		door::draw(entities.exit.position, 2.0f, entities.exit.rot_y, P, V, cam_pos);
-	}
-
-	// Actualizamos enemigo
-	update_enemy(delta_time);
-	enemy::draw(entities.enemy.position, 2.0f, entities.enemy.rot_y, P, V, cam_pos);
-
-	// Actualizamos sistema de partículas
-	particleSystem.update((float)delta_time);
-
-	// Calculamos la posición NDC del icono de llaves dinámicamente según el tamaño actual de la ventana
-	ImGuiIO& io_target = ImGui::GetIO();
-	float scr_w = io_target.DisplaySize.x;
-	float scr_h = io_target.DisplaySize.y;
-	particleSystem.pickup_target_ndc = vec2(
-		1.0f - 142.0f / scr_w,
-		1.0f - 76.0f / scr_h 
-	);
-
-	// Dibujamos partículas
-	particleSystem.render(P, V);
-
-	// Obtenemos referencia a ImGuiIO
+	// Renderizamos las interfaces con ImGui
 	ImGuiIO& io = ImGui::GetIO();
-
-	// Renderizamos la interfaz de usuario con ImGui
 	ImGui_ImplOpenGL3_NewFrame();
 	ImGui_ImplGlfw_NewFrame();
 	ImGui::NewFrame();
@@ -1577,112 +1779,7 @@ void show_info()
 
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
-////////////     FUNCIONES AUXILIARES 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-/**
- * Función para verificar si la cámara puede moverse a una nueva posición sin colisionar con las paredes del laberinto
- * @param new_pos Nueva posición a la que se quiere mover la cámara
- * @return true si la cámara puede moverse a la nueva posición sin colisiones, false
- */
-bool can_move(vec3& new_pos) {
-	// Comprobamos si la nueva posición colisionaría con alguna bounding box
-	return !maze->checkCollisionWithBoundingBoxes(new_pos, cam_radius);
-}
-
-/**
- * Función para comprobar si el jugador está lo bastante cerca de alguna llave sin recoger
- */
-void check_key_pickup() {
-    // Radio de recogida　
-    const float pickup_radius = 2.0f;
-    const float pickup_radius_sq = pickup_radius * pickup_radius;
-
-    for (Keys& k : entities.keys) {
-        if (k.collected) continue;
-
-        float dx = cam_pos.x - k.position.x;
-        float dz = cam_pos.z - k.position.z;
-        float dist_sq = dx * dx + dz * dz;
-
-        if (dist_sq < pickup_radius_sq) {
-            k.collected = true;
-            player_keys++;
-
-			// Burst de partículas en la posición visible de la llave
-            vec3 burst_pos = key_module::compute_light_pos(k.position);
-            const int BURST_COUNT = 300;
-            for (int i = 0; i < BURST_COUNT; i++) {
-                particleSystem.emit(Particle::CreatePickup(burst_pos));
-            }
-        }
-    }
-}
-
-/**
- * Función para comprobar las condiciones de salida.
- * Si porta las tres llaves pero está lejos, se activa el cambio de rotación de la puerta.
- * Si porta las tres llaves y está cerca, se acaba el juego.
- */
-void check_exit_condition(float delta_time) {
-	if (player_keys >= 3) {
-		if (&entities.exit.position) {
-			float dx = cam_pos.x - entities.exit.position.x;
-			float dz = cam_pos.z - entities.exit.position.z;
-			float dist_sq = dx * dx + dz * dz;
-
-			if (dist_sq < 1.0f) {
-				// TODO: Mensaje de fin?
-				printf("HAS GANADO\n");
-			}
-			else {
-				// TODO: Mover la puerta?
-			}
-		}	
-	}
-}
-
-/**
- * Función para actualizar la posición del enemigo cada frame siguiendo una ruta calculada con A* hacia la posición del jugador
- */
-void update_enemy(float delta_time) {
-	// Si no hay ruta, o se ha llegado al final de la actual, calculamos una nueva ruta hacia el jugador
-	if (entities.enemy.path.empty() || entities.enemy.pathIndex >= entities.enemy.path.size()) {
-		entities.enemy.path = enemyPathfinder->findPath(entities.enemy.position.x, entities.enemy.position.z, cam_pos.x, cam_pos.z);
-		entities.enemy.pathIndex = 0;
-	}
-
-	// Si hay una ruta, intentamos avanzar hacia el siguiente waypoint
-	if (!entities.enemy.path.empty() && entities.enemy.pathIndex < entities.enemy.path.size()) {
-		const vec3& waypoint = entities.enemy.path[entities.enemy.pathIndex];
-		float enemyY = entities.enemy.position.y; // Mantenemos altura fija
-		vec3 delta = vec3(waypoint.x - entities.enemy.position.x, 0.0f, waypoint.z - entities.enemy.position.z);
-		float distance = glm::length(vec2(delta.x, delta.z));
-		float enemySpeed = 1.5f;
-
-		// Diferenciamos la distancia al waypoint
-		if (distance < 0.05f) {
-			// Si estamos cerca, avanzamos al siguiente waypoint
-			entities.enemy.position = waypoint;
-			entities.enemy.pathIndex++;
-		} else {
-			// Si estamos lejos, continuamos avanzando hacia el waypoint actual
-			vec3 direction = glm::normalize(delta);
-			entities.enemy.position += direction * enemySpeed * (float)delta_time;
-		}
-
-		// Mantenemos altura fija, y rotación hacia el jugador
-		float to_player_x = cam_pos.x - entities.enemy.position.x;
-		float to_player_z = cam_pos.z - entities.enemy.position.z;
-		if ((to_player_x * to_player_x + to_player_z * to_player_z) > 0.001f) {
-			entities.enemy.rot_y = atan2(to_player_x, to_player_z);
-		}
-		entities.enemy.position.y = enemyY;
-	}
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////
-////////////     ASIGNACIÓN FUNCIONES CALLBACK
+////////////     FUNCIONES CALLBACK
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /**
@@ -1813,6 +1910,7 @@ static void MouseCallback(GLFWwindow* window, double xpos, double ypos)
 
 /**
  * Función que asigna las funciones callback para los eventos de ventana, teclado y ratón
+ * @param window puntero a la ventana GLFW
  */
 void asigna_funciones_callback(GLFWwindow* window)
 {
