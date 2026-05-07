@@ -76,7 +76,7 @@ const float STAMINA_REGEN_COOLDOWN = 2.0f; // Tiempo de enfriamiento antes de re
 float stamina_regen_timer = 0.0f; // Temporizador para controlar el enfriamiento de la regeneración de resistencia
 
 // Variables de cámara
-vec3 cam_pos = vec3(-26.0f, 3.0f, -26.0f); // Posición inicial de la cámara (observador)
+vec3 cam_pos = vec3(0.0f, 3.0f, 0.0f); // Posición inicial de la cámara (observador)
 vec3 cam_target = vec3(0.0f, 0.0f, 1.0f); // Dirección hacia donde mira la cámara
 vec3 cam_up = vec3(0.0f, 1.0f, 0.0f); // Vector "arriba" de la cámara
 int cam_fov = 62; // Campo de visión inicial
@@ -1078,7 +1078,7 @@ void reset_scene(const char* map_path, int side_size) {
 	game_over = false;
 	game_over_time = 0.0;
 
-	cam_pos = vec3(-26.0f, 3.0f, -26.0f);
+	cam_pos = vec3(0.0f, 3.0f, 0.0f);
 	cam_target = vec3(0.0f, 0.0f, 1.0f);
 	cam_up = vec3(0.0f, 1.0f, 0.0f);
 	cam_yaw = 0.0f;
