@@ -114,6 +114,7 @@ double last_frame_time = 0.0; // Tiempo del último frame
 // Variables de ImGui
 bool show_stats = true;
 bool show_settings = false;
+bool show_minimap = true;
 
 // Variables de control de reinicio (cambio de mapa)
 bool show_loading = false; // Indica si se debe mostrar el mensaje de carga
@@ -1611,12 +1612,19 @@ void renderSettingsPanel() {
         ImGui::Separator();
         ImGui::Spacing();
         
-        // Slider para sensibilidad del ratón
         ImGui::SliderFloat("Sensibilidad del Ratón", &mouse_sensitivity, 0.01f, 0.5f);
-        
-        ImGui::Spacing();
-        ImGui::Separator();
-        ImGui::Spacing();
+
+		ImGui::Spacing();
+		ImGui::Separator();
+		ImGui::Spacing();
+
+		// Interfaz / HUD
+		ImGui::Text("Interfaz");
+		ImGui::Checkbox("Mostrar Minimapa", &show_minimap);
+
+		ImGui::Spacing();
+		ImGui::Separator();
+		ImGui::Spacing();
         
         // Controles para mapas de texturas
         ImGui::Text("Mapas de Texturas");
@@ -1648,6 +1656,7 @@ void renderSettingsPanel() {
 			mouse_sensitivity = 0.1f;
 			displacement_intensity = 1.0f;
 			ao_intensity = 1.0f;
+			show_minimap = true;
 		}
 		ImGui::PopStyleColor(3);
 
@@ -1662,6 +1671,134 @@ void renderSettingsPanel() {
         
         ImGui::End();
     }
+}
+
+/**
+ * Función para renderizar un minimapa en la esquina superior izquierda 
+ */
+void renderMinimap(ImGuiIO& io) {
+    if (!maze) return;
+
+    const int rows = maze->getRows();
+    const int cols = maze->getColumns();
+    const float tile = maze->getTileSize();
+    const float center_xz = (cols * tile) * 0.5f;
+
+    // Tamaño visual de cada celda en píxeles
+    const float CELL = 9.0f;
+    const float PAD = 6.0f;
+    const float MAP_W = cols * CELL + 2.0f * PAD;
+    const float MAP_H = rows * CELL + 2.0f * PAD;
+
+	// Posición debajo del HUD, alineado a la derecha
+    const float HUD_TOP_Y = 10.0f; 
+    const float HUD_H = 40.0f;
+    const float GAP = 8.0f; // separación entre HUD y minimapa
+    const float MARGIN_R = 30.0f; // margen al borde derecho
+
+    ImGui::SetNextWindowPos(
+        ImVec2(io.DisplaySize.x - MAP_W - MARGIN_R,
+               HUD_TOP_Y + HUD_H + GAP),
+        ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(MAP_W, MAP_H), ImGuiCond_Always);
+
+    ImGuiWindowFlags flags =
+        ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove |
+        ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar |
+        ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoSavedSettings |
+        ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNav;
+
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+
+
+	ImGui::Begin("Minimap", nullptr, flags);
+	ImDrawList* dl = ImGui::GetWindowDrawList();
+	ImVec2 o = ImGui::GetCursorScreenPos();
+
+	// Fondo + borde
+	dl->AddRectFilled(ImVec2(o.x, o.y),
+						ImVec2(o.x + MAP_W, o.y + MAP_H),
+						IM_COL32(15, 12, 8, 200), 5.0f);
+	dl->AddRect(ImVec2(o.x, o.y),
+						ImVec2(o.x + MAP_W, o.y + MAP_H),
+						IM_COL32(180, 140, 60, 255), 5.0f, 0, 1.5f);
+
+	const float gx = o.x + PAD;
+	const float gy = o.y + PAD;
+
+	// Celdas de paredes y suelo
+	for (int i = 0; i < rows; ++i) {
+		for (int j = 0; j < cols; ++j) {
+			float x0 = gx + j * CELL;
+			float y0 = gy + i * CELL;
+			float x1 = x0 + CELL;
+			float y1 = y0 + CELL;
+
+			if (maze->getGrid(i, j) == 1) {
+				// Pared
+				dl->AddRectFilled(ImVec2(x0, y0), ImVec2(x1, y1),
+									IM_COL32(140, 110, 80, 255));
+			} else {
+				// Suelo 
+				dl->AddRectFilled(ImVec2(x0, y0), ImVec2(x1, y1),
+									IM_COL32(45, 38, 28, 220));
+			}
+		}
+	}
+
+	// laves no recogidas con parpadeo
+	float t = (float)glfwGetTime();
+	float pulse = 0.55f + 0.45f * sinf(t * 5.0f);
+	for (const Keys& k : entities.keys) {
+		if (k.collected) continue;
+		float kx = gx + (k.x_2D + 0.5f) * CELL;
+		float ky = gy + (k.y_2D + 0.5f) * CELL;
+		ImU32 col = IM_COL32(255, 215, 70, (int)(255 * pulse));
+		dl->AddCircleFilled(ImVec2(kx, ky), CELL * 0.38f, col, 12);
+		dl->AddCircle (ImVec2(kx, ky), CELL * 0.38f,
+							IM_COL32(120, 90, 0, 255), 12, 1.0f);
+	}
+
+	// Salida
+	if (entities.exit.x_2D >= 0) {
+		float ex = gx + (entities.exit.x_2D + 0.5f) * CELL;
+		float ey = gy + (entities.exit.y_2D + 0.5f) * CELL;
+		ImU32 ecol = (player_keys >= 3) ? IM_COL32( 80, 230, 100, 255)
+										: IM_COL32(220, 60, 60, 255);
+		dl->AddRectFilled(ImVec2(ex - CELL*0.42f, ey - CELL*0.42f),
+							ImVec2(ex + CELL*0.42f, ey + CELL*0.42f),
+							ecol, 1.5f);
+	}
+
+	// Jugador, un triángulo apuntando hacia la dirección de la cámara
+	float jf = (cam_pos.x + center_xz) / tile;
+	float ifl = (cam_pos.z + center_xz) / tile;
+	float px = gx + jf * CELL;
+	float py = gy + ifl * CELL;
+
+
+	float fx = cam_target.x;
+	float fy = cam_target.z;
+	float flen = sqrtf(fx*fx + fy*fy);
+	if (flen > 1e-4f) { fx /= flen; fy /= flen; }
+
+	float rx = -fy;
+	float ry = fx;
+
+	const float TRI = CELL * 0.7f;
+	ImVec2 tip (px + fx * TRI,
+					py + fy * TRI);
+	ImVec2 left_ (px - fx * TRI * 0.5f - rx * TRI * 0.45f,
+					py - fy * TRI * 0.5f - ry * TRI * 0.45f);
+	ImVec2 right_(px - fx * TRI * 0.5f + rx * TRI * 0.45f,
+					py - fy * TRI * 0.5f + ry * TRI * 0.45f);
+
+	dl->AddTriangleFilled(tip, left_, right_, IM_COL32(255, 255, 255, 255));
+	dl->AddTriangle (tip, left_, right_, IM_COL32( 0, 0, 0, 255), 1.0f);
+
+	ImGui::End();
+    ImGui::PopStyleVar(2);
 }
 
 /**
@@ -1680,6 +1817,8 @@ void renderGameUI(ImGuiIO& io) {
 	const float GAP_GROUP = 24.0f; // Separación ente indicadores distintos
 	const float STAMINA_BAR_W = 70.0f; // Ancho de la barra de resistencia
 	const float STAMINA_BAR_H = 8.0f; // Alto de la barra de resistencia
+
+	if(show_minimap) renderMinimap(io);
 
 	// Panel de estadísticas en esquina superior derecha, con tamaño fijo (siempre)
 	ImGui::SetNextWindowPos(ImVec2(SCR_W - HUD_W, 10), ImGuiCond_Always);
