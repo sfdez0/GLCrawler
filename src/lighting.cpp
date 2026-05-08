@@ -46,10 +46,6 @@ namespace lighting {
         intensities.push_back(intensity);
     }
 
-    int count() {
-        return (int)positions.size();
-    }
-
     void upload_to_shader(GLuint prog) {
         glUseProgram(prog);
         int n = (int)positions.size();

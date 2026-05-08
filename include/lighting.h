@@ -15,9 +15,6 @@ namespace lighting {
     // Subir el array de luces al programa shader dado
     void upload_to_shader(GLuint prog);
 
-    // Cuántas luces hay actualmente en el array
-    int count();
-
     // Calcular la posición de la luz de una antorcha de pared
     vec3 compute_torch_light_pos(int x, int y, char direction,
                                  float tile_size, float maze_center_xz);

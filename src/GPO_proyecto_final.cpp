@@ -613,12 +613,17 @@ Entities load_entities_from_file(const char* filename, int maze_rows, float tile
 	}
 	
 	if (ent.keys.size() != 3 || !enemy_loaded || !exit_loaded) {
-		printf("ERROR - CARGA: Se esperaban 3 llaves, 1 enemigo y 1 salida. Encontrados: %zu llaves, %d enemigo, %d salida\n", ent.keys.size(), enemy_loaded, exit_loaded);
+		printf("- ERROR - CARGA: Se esperaban 3 llaves, 1 enemigo y 1 salida. Encontrados: %zu llaves, %d enemigo, %d salida\n", ent.keys.size(), enemy_loaded, exit_loaded);
 		
 		// Cerramos el juego y liberamos recursos
 		glfwTerminate();
 		exit(EXIT_FAILURE);
 		return ent;
+	}
+
+	// Comprobamos si se supera el número máximo de luces (antorchas + llaves + luz del jugador)
+	if ((ent.torches.size() + ent.keys.size() + 1) > lighting::MAX_LIGHTS) {
+		printf("- AVISO: superado el numero maximo de luces (%d), las luces extra seran ignoradas.\n", lighting::MAX_LIGHTS);
 	}
 
 	file.close();
@@ -642,7 +647,7 @@ objeto crear_escena(const char* map_path, int side_size){
 	// Cargamos el mapa desde el archivo .txt (1 = muro, 0 = vacío)
 	int* map = load_maze_from_file(map_path, side_size);
 	if (map == nullptr) {
-		printf("ERROR - CARGA: No se pudo cargar el mapa del laberinto: %s\n", map_path);
+		printf("- ERROR - CARGA: No se pudo cargar el mapa del laberinto: %s\n", map_path);
 
 		// Cerramos el juego y liberamos recursos
 		glfwTerminate();
@@ -1489,13 +1494,6 @@ void update_keys(float delta_time, float current_time, const mat4& P, const mat4
 	float keyT     = (float)glfwGetTime();
 	float keyPulse = 1.0f + 0.12f * sin(keyT * 0.9f) + 0.04f * sin(keyT * 2.6f);
 	vec3  keyColor = vec3(0.5f, 0.85f, 0.3f) * 1.8f * keyPulse;
-
-	// Luz dorada de las llaves (solo si no han sido recogidas)
-	// for(const Keys& k : entities.keys){
-	// 	if (!k.collected) {
-	// 		lighting::add(k.lightPos, keyColor);
-	// 	}
-	// }
 
 	// Dibujamos llaves según entidades cargadas del mapa
 	for(Keys& k : entities.keys){
