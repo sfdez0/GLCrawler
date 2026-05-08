@@ -72,6 +72,9 @@ namespace torch_module {
 
             out vec3 outputColor;
 
+            const float light_range = 6.0f;
+            const float light_soft = 2.0f;
+
             mat3 cotangent_frame(vec3 N, vec3 p, vec2 uv){
                 vec3 dp1 = dFdx(p);
                 vec3 dp2 = dFdy(p);
@@ -108,9 +111,6 @@ namespace torch_module {
                 // Ambiente
                 vec3 ambient = baseColor * mix(0.20, 0.12, metallic);
                 vec3 result = ambient;
-
-                float light_range = 6.0;
-                float light_soft = 2.0;
 
                 for (int i = 0; i < numLights; i++){
                     vec3 L = lightPositions[i] - FragPos;

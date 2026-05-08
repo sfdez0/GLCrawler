@@ -74,6 +74,10 @@ namespace door {
 
             out vec3 outputColor;
 
+            const float specularPower = 2.0f;
+            const float light_range = 6.0f; // Rango máximo de la luz
+            const float light_soft = 2.0f; // Rango de suavizado al final del rango máximo
+
             mat3 cotangent_frame(vec3 N, vec3 p, vec2 uv){
                 vec3 dp1 = dFdx(p);
                 vec3 dp2 = dFdy(p);
@@ -114,11 +118,6 @@ namespace door {
                 // Ambiente
                 vec3 ambient = baseColor * mix(0.05, 0.02, metallic) * ao;
                 vec3 result = ambient;
-
-                float specularPower = mix(32.0, 2.0, 1.0f);
-
-                float light_range = 6.0; // Rango máximo de la luz
-                float light_soft = 2.0; // Rango de suavizado al final del rango máximo
 
                 // Acumular contribución de cada antorcha
                 for(int i = 0; i < numLights; i++){

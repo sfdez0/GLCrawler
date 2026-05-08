@@ -74,6 +74,9 @@ namespace key_module {
 
             out vec3 outputColor;
 
+            const float light_range = 8.0f;
+            const float light_soft = 2.5f;
+
             mat3 cotangent_frame(vec3 N, vec3 p, vec2 uv){
                 // Derivadas de la posición y de las UV respecto a las coords. de pantalla
                 vec3 dp1 = dFdx(p);
@@ -128,9 +131,6 @@ namespace key_module {
 
                 // Inicializamos el color final con la contribución ambiente
                 vec3 result = ambient;
-
-                float light_range = 8.0;
-                float light_soft = 2.5;
 
                 // Iteramos sobre todas las luces de la escena (antorchas + luz de la llave)
                 for (int i = 0; i < numLights; i++){

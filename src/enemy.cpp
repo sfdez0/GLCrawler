@@ -51,18 +51,17 @@ namespace enemy {
 
             out vec3 outputColor;
 
+            const float specularPower = 32.0f;
+            const float specularStrength = 0.08f;
+            const float light_range = 6.0f;
+            const float light_soft = 2.0f;
+
             void main(){
                 vec3 V = normalize(camPos - FragPos);
                 vec3 N = normalize(Normal);
 
                 vec3 ambient = baseColor * 0.02;
                 vec3 result = ambient;
-
-                float specularPower = 32.0;
-                float specularStrength = 0.08;
-
-                float light_range = 6.0;
-                float light_soft = 2.0;
 
                 for(int i = 0; i < numLights; i++){
                     vec3 L = lightPositions[i] - FragPos;

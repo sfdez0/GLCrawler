@@ -308,6 +308,11 @@ const char* fragment_prog = GLSL(
 	uniform float ao_intensity;
 
 	out vec3 outputColor; // Color final que se pintará en la pantalla
+
+	const float specularPower = 2.0f;
+	const float light_range = 6.0f; // Rango máximo de la luz
+	const float light_soft = 2.0f; // Rango de suavizado al final del rango máximo
+
 	void main() {
 		vec3 texColor = texture(tex, UV).rgb;
 
@@ -319,7 +324,7 @@ const char* fragment_prog = GLSL(
 		// Cargamos displacement para modular la intensidad del normal y aplicamos intensidad
 		float displacement = texture(displacementMap, UV).r * displacement_intensity;
 		displacement = clamp(displacement, 0.0, 1.0);
-		N = normalize(mix(N, normalize(vec3(0.0, 1.0, 0.0)), displacement * 0.3));
+		N = normalize(mix(N, vec3(0.0, 1.0, 0.0), displacement * 0.3));
 
 		// Cargamos ambient occlusion y aplicamos intensidad
 		float ao = texture(aoMap, UV).r;
@@ -334,11 +339,6 @@ const char* fragment_prog = GLSL(
 		vec3 geomNormal = normalize(TBN[2]);
 
 		vec3 result = ambient;
-
-		float specularPower = mix(32.0, 2.0, 1.0f);
-
-		float light_range = 6.0; // Rango máximo de la luz
-		float light_soft = 2.0; // Rango de suavizado al final del rango máximo
 
 		// Acumular contribución de cada antorcha
 		for(int i = 0; i < numLights; i++){
