@@ -222,9 +222,14 @@ namespace door {
         }
     }
 
-    void draw(vec3 pos, float scale, float rot_y, mat4 P, mat4 V, vec3 cam_pos) {
+    void draw(vec3 pos, float scale, float rot_y, mat4 P, mat4 V, vec3 cam_pos, float open_angle) {
+        const float HINGE_OFFSET_X = 0.5f; // Posición local de la bisagra
+    
         mat4 M = translate(mat4(1.0f), pos)
             * rotate(mat4(1.0f), rot_y, vec3(0, 1, 0))
+            * translate(mat4(1.0f), vec3(-HINGE_OFFSET_X, 0, 0)) // mover bisagra al origen
+            * rotate(mat4(1.0f), open_angle, vec3(0, 1, 0)) // rotación de apertura
+            * translate(mat4(1.0f), vec3(HINGE_OFFSET_X, 0, 0)) // mover de vuelta
             * glm::scale(mat4(1.0f), vec3(scale, scale, scale));
 
         lighting::upload_to_shader(prog_door); // Incluye "glUseProgram(prog_door);"

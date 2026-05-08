@@ -24,7 +24,27 @@
 #include "enemy.h"
 #include "ParticleEmitter.h"
 #include "pathfinding.h"
+#include "portal.h"
 
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////     ESTADOS DE FIN DE PARTIDA
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+enum class EndingState {
+    PLAYING, // Juego normal
+    DOOR_OPENING, // La puerta gira sobre su bisagra
+    PORTAL_APPEARING, // El portal aparece dentro del marco 
+    CAMERA_MOVING, // La cámara avanza hacia el portal 
+    FADE_OUT, // Fundido 
+    VICTORY_SCREEN, // Pantalla de victoria final
+    DEFEAT_SCREEN // Pantalla de derrota
+};
+
+// Duraciones de cada fase 
+constexpr float DURATION_DOOR_OPENING = 1.0f;
+constexpr float DURATION_PORTAL_APPEARING = 0.3f;
+constexpr float DURATION_CAMERA_MOVING = 1.5f;
+constexpr float DURATION_FADE_OUT = 0.6f;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////     VARIABLES 
@@ -126,6 +146,21 @@ int pending_side_size = 0;
 // Variables de fin
 bool game_over = false;
 double game_over_time = 0.0;
+
+// Estado del fin de partida 
+EndingState ending_state = EndingState::PLAYING;
+double ending_state_start_time = 0.0; // Tiempo en que entramos al estado actual
+
+// Datos guardados al activar la victoria
+double victory_start_time = 0.0; // Tiempo en que comenzó la partida
+double victory_total_time = 0.0; // Tiempo total que tardó en ganar
+int victory_final_health = 0; // Vida con la que terminó
+
+// Posición y orientación de cámara objetivo durante CAMERA_MOVING
+vec3 ending_camera_start_pos; // Donde estaba la cámara al iniciar la animación
+vec3 ending_camera_target_pos; // Donde tiene que llegar (centro del portal)
+vec3 ending_camera_start_target; // Dirección de mirada inicial
+vec3 ending_camera_end_target; // Dirección de mirada final (hacia portal)
 
 // Variables de control de intensidad de los mapas de texturas
 float displacement_intensity = 1.0f;  // Intensidad del desplazamiento (0.0 - 2.0)
@@ -994,6 +1029,7 @@ void init_render_resources() {
 	enemy::init(); // Enemigo
 	flame::init(); // Llamas de las antorchas
 	key_module::init(); // Llaves
+	portal::init(); // Portal
 	particleSystem.init(); // Sistema de partículas
 
 	// Volver al programa principal
@@ -1014,6 +1050,8 @@ void init_scene() {
 	escena_cubica = crear_escena(default_map_path, default_side_size);  // Crear el escenario del laberinto con todas las paredes
 
 	init_render_resources();
+
+	victory_start_time = glfwGetTime();
 }
 
 /**
@@ -1081,6 +1119,7 @@ void destroy_render_resources() {
 	flame::shutdown();
 	door::shutdown();
 	enemy::shutdown();
+	portal::shutdown();
 
 	if (tex_brick != 0) {
 		glDeleteTextures(1, &tex_brick);
@@ -1177,12 +1216,34 @@ void reset_scene(const char* map_path, int side_size) {
 
 	escena_cubica = crear_escena(map_path, side_size);
 	init_render_resources();
+
+	// Resetear el estado de fin de partida
+	ending_state = EndingState::PLAYING;
+	victory_start_time = glfwGetTime();
 }
 
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////     FUNCIONES AUXILIARES 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/**
+ * Función para cambiar el estado de fin de partida y resetear el cronómetro de fase
+ */
+void set_ending_state(EndingState new_state) {
+    ending_state = new_state;
+    ending_state_start_time = glfwGetTime();
+}
+
+/**
+ * Función para obtener el progreso dentro de la fase actual
+ */
+float get_ending_progress(float duration) {
+    float elapsed = (float)(glfwGetTime() - ending_state_start_time);
+    float t = elapsed / duration;
+    if (t < 0.0f) t = 0.0f;
+    if (t > 1.0f) t = 1.0f;
+    return t;
+}
 
 /**
  * Función para verificar si la cámara puede moverse a una nueva posición sin colisionar con las paredes del laberinto
@@ -1202,19 +1263,23 @@ bool can_move(vec3& new_pos) {
  * @param current_time Tiempo actual
  */
 void check_exit_condition(float delta_time, float current_time) {
-	if (player_keys >= 3) {
-		if (&entities.exit.position) {
-			float dx = cam_pos.x - entities.exit.position.x;
-			float dz = cam_pos.z - entities.exit.position.z;
-			float dist_sq = dx * dx + dz * dz;
+    if (ending_state != EndingState::PLAYING) return;
+    
+    if (player_keys >= 3) {
+        float dx = cam_pos.x - entities.exit.position.x;
+        float dz = cam_pos.z - entities.exit.position.z;
+        float dist_sq = dx * dx + dz * dz;
 
-			// Si está cerca de la puerta, activamos fin de juego
-			if (dist_sq < 1.0f) {
-				game_over = true;
-				game_over_time = current_time;
-			}
-		}	
-	}
+        // Si está cerca de la puerta, iniciamos la secuencia de victoria
+        if (dist_sq < 6.0f) {
+            // Guardamos las estadísticas de la partida
+            victory_total_time = current_time - victory_start_time;
+            victory_final_health = player_health;
+            
+            // Cambiamos al primer estado de la animación
+            set_ending_state(EndingState::DOOR_OPENING);
+        }
+    }
 }
 
 /**
@@ -1286,6 +1351,8 @@ static void bind_ceiling_textures() {
 void update_controls(float delta_time, float current_time) {
 	// Si el juego está pausado, no procesamos controles
 	if (game_over || show_settings) return;
+
+	if (ending_state != EndingState::PLAYING) return;
 
 	// Detectamos si el jugador se está moviendo (WASD)
 	bool is_moving = keys_pressed[0] || keys_pressed[1] || keys_pressed[2] || keys_pressed[3];
@@ -1445,9 +1512,56 @@ void update_keys(float delta_time, float current_time, const mat4& P, const mat4
  * @param V Matriz de vista actual
  */
 void update_exit(const mat4& P, const mat4& V) {
-    door::draw(entities.exit.position, 2.0f, entities.exit.rot_y, P, V, cam_pos);
-}
+    // Ángulo de apertura de la puerta
+    float open_angle = 0.0f;
 
+    if (ending_state == EndingState::DOOR_OPENING) {
+        float t = get_ending_progress(DURATION_DOOR_OPENING);
+        float eased = t * t * (3.0f - 2.0f * t);
+        open_angle = eased * glm::radians(-90.0f);
+    }
+    else if (ending_state == EndingState::PORTAL_APPEARING ||
+             ending_state == EndingState::CAMERA_MOVING ||
+             ending_state == EndingState::FADE_OUT ||
+             ending_state == EndingState::VICTORY_SCREEN) {
+        open_angle = glm::radians(-90.0f);
+    }
+
+    door::draw(entities.exit.position, 2.0f, entities.exit.rot_y,
+               P, V, cam_pos, open_angle);
+
+    // Portal
+	bool draw_portal = false;
+	float appear_t = 0.0f;
+
+	if (ending_state == EndingState::DOOR_OPENING) {
+		float t = get_ending_progress(DURATION_DOOR_OPENING);
+		appear_t = glm::min(t * 4.0f, 1.0f);
+		draw_portal = true;
+	}
+	else if (ending_state != EndingState::PLAYING &&
+			ending_state != EndingState::DEFEAT_SCREEN) {
+		appear_t = 1.0f;
+		draw_portal = true;
+	}
+
+	if (draw_portal) {
+		vec3 portal_pos = portal::compute_portal_center(
+			entities.exit.position, cam_pos.y);
+
+		vec3 to_cam = cam_pos - portal_pos;
+		to_cam.y = 0.0f;
+		if (glm::length(to_cam) > 0.001f) {
+			portal_pos -= glm::normalize(to_cam) * 0.10f; 
+		}
+
+		float portal_w = 1.3f;
+		float portal_h = 4.2f;
+
+		portal::draw(portal_pos, entities.exit.rot_y, portal_w, portal_h,
+					appear_t, (float)glfwGetTime(), P, V);
+	}
+}
 
 /**
  * Función para actualizar el enemigo cada frame.
@@ -1457,7 +1571,7 @@ void update_exit(const mat4& P, const mat4& V) {
  * @param V Matriz de vista actual
  */
 void update_enemy(float delta_time, float current_time, const mat4& P, const mat4& V) {
-	// Si el juego está pausado, fijamos la posición del enemigo
+		// Si el juego está pausado, fijamos la posición del enemigo
 	if (game_over || show_settings) {
 		enemy::draw(entities.enemy.position, 2.0f, entities.enemy.rot_y, P, V, cam_pos);
 		return;
@@ -1508,8 +1622,11 @@ void update_enemy(float delta_time, float current_time, const mat4& P, const mat
 				if (player_health <= 0) {
 					player_health = 0;
 
-					game_over = true;
-					game_over_time = current_time;
+					if (ending_state == EndingState::PLAYING) {
+						set_ending_state(EndingState::DEFEAT_SCREEN);
+						game_over = true;
+						game_over_time = current_time;
+					}
 				}
 			}
 		}
@@ -1517,6 +1634,83 @@ void update_enemy(float delta_time, float current_time, const mat4& P, const mat
 
 	// Dibujamos el enemigo en su nueva posición
 	enemy::draw(entities.enemy.position, 2.0f, entities.enemy.rot_y, P, V, cam_pos);
+}
+
+/**
+ * Función que avanza la máquina de estados de fin de partida
+ */
+void update_ending_state(float current_time) {
+    switch (ending_state) {
+        case EndingState::PLAYING:
+            break;
+            
+        case EndingState::DOOR_OPENING:
+            if (get_ending_progress(DURATION_DOOR_OPENING) >= 1.0f) {
+                set_ending_state(EndingState::PORTAL_APPEARING);
+            }
+            break;
+            
+       case EndingState::PORTAL_APPEARING:
+    if (get_ending_progress(DURATION_PORTAL_APPEARING) >= 1.0f) {
+        ending_camera_start_pos = cam_pos;
+        ending_camera_start_target = cam_target;
+
+        // Centro del portal a altura de cámara
+        vec3 portal_center = entities.exit.position;
+        portal_center.y = cam_pos.y;
+
+        vec3 dir = portal_center - ending_camera_start_pos;
+        dir.y = 0.0f;
+        float dist = glm::length(dir);
+        if (dist > 0.001f) {
+            dir = glm::normalize(dir);
+            ending_camera_target_pos = portal_center - dir * 0.3f;
+        } else {
+            ending_camera_target_pos = portal_center;
+        }
+
+        ending_camera_end_target =
+            glm::normalize(portal_center - ending_camera_start_pos);
+
+        set_ending_state(EndingState::CAMERA_MOVING);
+    }
+    break;
+            
+        case EndingState::CAMERA_MOVING: {
+    float t = get_ending_progress(DURATION_CAMERA_MOVING);
+
+    float eased = t * t * (3.0f - 2.0f * t);
+
+    // Interpolamos posición de cámara hacia el centro del portal
+    cam_pos = glm::mix(ending_camera_start_pos,
+                       ending_camera_target_pos,
+                       eased);
+
+    // La cámara siempre mira hacia el portal mientras se acerca
+    vec3 to_portal = ending_camera_target_pos - cam_pos;
+    if (glm::length(to_portal) > 0.001f) {
+        cam_target = glm::normalize(to_portal);
+    } else {
+        cam_target = ending_camera_end_target;
+    }
+
+    if (t >= 1.0f) {
+        set_ending_state(EndingState::FADE_OUT);
+    }
+    break;
+}
+        case EndingState::FADE_OUT:
+            if (get_ending_progress(DURATION_FADE_OUT) >= 1.0f) {
+                set_ending_state(EndingState::VICTORY_SCREEN);
+                game_over = true;
+                game_over_time = current_time;
+            }
+            break;
+            
+        case EndingState::VICTORY_SCREEN:
+        case EndingState::DEFEAT_SCREEN:
+            break;
+    }
 }
 
 /**
@@ -1806,6 +2000,10 @@ void renderMinimap(ImGuiIO& io) {
  * @param io Referencia a la estructura i/o de ImGui
  */
 void renderGameUI(ImGuiIO& io) {
+	// Durante la animación final ocultamos HUD y minimapa
+	bool in_ending = (ending_state != EndingState::PLAYING &&
+	                  ending_state != EndingState::DEFEAT_SCREEN);
+
 	// Tamaño actual de la ventana 
 	const float SCR_W = io.DisplaySize.x;
 	const float SCR_H = io.DisplaySize.y;
@@ -1818,7 +2016,7 @@ void renderGameUI(ImGuiIO& io) {
 	const float STAMINA_BAR_W = 70.0f; // Ancho de la barra de resistencia
 	const float STAMINA_BAR_H = 8.0f; // Alto de la barra de resistencia
 
-	if(show_minimap) renderMinimap(io);
+	if(show_minimap && !in_ending) renderMinimap(io);
 
 	// Panel de estadísticas en esquina superior derecha, con tamaño fijo (siempre)
 	ImGui::SetNextWindowPos(ImVec2(SCR_W - HUD_W, 10), ImGuiCond_Always);
@@ -1830,7 +2028,7 @@ void renderGameUI(ImGuiIO& io) {
         ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoSavedSettings |
         ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNav;
 
-    if (show_stats && ImGui::Begin("HUD", nullptr, hud_flags)) {
+    if (show_stats && !in_ending && ImGui::Begin("HUD", nullptr, hud_flags)) {
 		// Obtenemos el draw list de la ventana actual
 		ImDrawList* dl = ImGui::GetWindowDrawList();
         ImVec2 origin = ImGui::GetCursorScreenPos();
@@ -1935,17 +2133,152 @@ void renderGameUI(ImGuiIO& io) {
         }
     }
 
-	// Mensaje de fin de partida centrado
+	// Fade-out durante la fase final de la animación
+	if (ending_state == EndingState::FADE_OUT ||
+		ending_state == EndingState::VICTORY_SCREEN) {
+
+		float alpha_f = 1.0f;
+		if (ending_state == EndingState::FADE_OUT) {
+			alpha_f = get_ending_progress(DURATION_FADE_OUT);
+		}
+		int alpha_i = (int)(255.0f * alpha_f);
+		if (alpha_i > 255) alpha_i = 255;
+
+	
+	
+		float t_fade = alpha_f;  
+		
+		int r = (int)glm::mix(40.0f,  18.0f, t_fade);
+		int g = (int)glm::mix(15.0f,  12.0f, t_fade);
+		int b = (int)glm::mix(90.0f,  28.0f, t_fade);
+
+		ImGui::GetBackgroundDrawList()->AddRectFilled(
+			ImVec2(0.0f, 0.0f),
+			ImVec2(io.DisplaySize.x, io.DisplaySize.y),
+			IM_COL32(r, g, b, alpha_i)
+		);
+			}
 	if (game_over && !show_loading) {
-		ImGui::SetNextWindowPos(ImVec2(SCR_W / 2.0f, SCR_H / 2.0f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
-		if (ImGui::Begin("Game Over", nullptr,
+		bool is_victory = (ending_state == EndingState::VICTORY_SCREEN);
+		bool is_defeat  = (ending_state == EndingState::DEFEAT_SCREEN ||
+						(player_health <= 0));
+
+		const float PANEL_W = 460.0f;
+		const float PANEL_H = is_victory ? 240.0f : 140.0f;
+
+		ImGui::SetNextWindowPos(ImVec2(SCR_W * 0.5f, SCR_H * 0.5f),
+								ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+		ImGui::SetNextWindowSize(ImVec2(PANEL_W, PANEL_H), ImGuiCond_Always);
+		ImGui::SetNextWindowBgAlpha(0.0f);
+
+		if (ImGui::Begin("EndScreen", nullptr,
 			ImGuiWindowFlags_NoDecoration |
 			ImGuiWindowFlags_NoMove |
-			ImGuiWindowFlags_AlwaysAutoResize |
 			ImGuiWindowFlags_NoSavedSettings |
 			ImGuiWindowFlags_NoNav |
-			ImGuiWindowFlags_NoBackground)) {
-			ImGui::Text(player_health <= 0 ? "has muerto" : "has ganado");
+			ImGuiWindowFlags_NoBackground))
+		{
+			ImDrawList* dl = ImGui::GetWindowDrawList();
+			ImVec2 wp = ImGui::GetWindowPos();
+			ImVec2 ws = ImGui::GetWindowSize();
+
+			// Fondo + marco dorado 
+			ImU32 bg_col = is_victory ? IM_COL32(20, 15, 28, 240)
+										: IM_COL32(28, 10, 10, 240);
+			ImU32 border_col = is_victory ? IM_COL32(180, 140, 60, 255)
+										: IM_COL32(180, 60, 50, 255);
+			ImU32 inner_col = is_victory ? IM_COL32(120, 90, 30, 180)
+										: IM_COL32(120, 40, 30, 180);
+
+			dl->AddRectFilled(wp, ImVec2(wp.x+ws.x, wp.y+ws.y), bg_col, 6.0f);
+			dl->AddRect (wp, ImVec2(wp.x+ws.x, wp.y+ws.y), border_col, 6.0f, 0, 2.5f);
+			dl->AddRect(ImVec2(wp.x+6, wp.y+6),
+					ImVec2(wp.x+ws.x-6, wp.y+ws.y-6),
+					inner_col, 4.0f, 0, 1.0f);
+
+			// VICTORIA 
+			if (is_victory) {
+				float flicker = 1.0f + 0.08f * sinf((float)glfwGetTime() * 6.0f);
+				ImGui::PushStyleColor(ImGuiCol_Text,
+					ImVec4(1.0f * flicker, 0.84f * flicker, 0.40f, 1.0f));
+				ImGui::SetWindowFontScale(2.4f);
+				const char* title = "VICTORIA";
+				ImVec2 ts = ImGui::CalcTextSize(title);
+				ImGui::SetCursorPosX((PANEL_W - ts.x) * 0.5f);
+				ImGui::SetCursorPosY(20.0f);
+				ImGui::Text("%s", title);
+				ImGui::SetWindowFontScale(1.0f);
+				ImGui::PopStyleColor();
+
+				// Separador rúnico 
+				float cy = wp.y + 95.0f;
+				float cx = wp.x + ws.x * 0.5f;
+				dl->AddLine(ImVec2(wp.x+40, cy), ImVec2(cx-12, cy),
+							IM_COL32(180,140,60,200), 1.5f);
+				dl->AddLine(ImVec2(cx+12, cy), ImVec2(wp.x+ws.x-40, cy),
+							IM_COL32(180,140,60,200), 1.5f);
+				ImVec2 rombo[4] = {
+					ImVec2(cx, cy-5), ImVec2(cx+5, cy),
+					ImVec2(cx, cy+5), ImVec2(cx-5, cy)
+				};
+				dl->AddConvexPolyFilled(rombo, 4, IM_COL32(220,180,80,255));
+
+				// Subtítulo en violeta brumoso
+				ImGui::SetCursorPosY(110.0f);
+				ImGui::PushStyleColor(ImGuiCol_Text,
+					ImVec4(0.70f, 0.58f, 0.86f, 1.0f));
+				ImGui::SetWindowFontScale(1.1f);
+				const char* sub = "Has escapado de la mazmorra";
+				ImVec2 sub_ts = ImGui::CalcTextSize(sub);
+				ImGui::SetCursorPosX((PANEL_W - sub_ts.x) * 0.5f);
+				ImGui::Text("%s", sub);
+				ImGui::SetWindowFontScale(1.0f);
+				ImGui::PopStyleColor();
+
+				ImGui::Dummy(ImVec2(0, 14));
+
+				// Stats en color pergamino
+				ImGui::PushStyleColor(ImGuiCol_Text,
+					ImVec4(0.86f, 0.82f, 0.76f, 1.0f));
+				ImGui::SetWindowFontScale(1.2f);
+
+				char buf[64];
+				int minutes = (int)(victory_total_time / 60.0);
+				float seconds = (float)victory_total_time - minutes * 60.0f;
+				snprintf(buf, sizeof(buf), "Tiempo:      %d min  %.1f s",
+						minutes, seconds);
+				ImVec2 t1 = ImGui::CalcTextSize(buf);
+				ImGui::SetCursorPosX((PANEL_W - t1.x) * 0.5f);
+				ImGui::Text("%s", buf);
+
+				snprintf(buf, sizeof(buf), "Vida final:  %d / 100",
+						victory_final_health);
+				ImVec2 t2 = ImGui::CalcTextSize(buf);
+				ImGui::SetCursorPosX((PANEL_W - t2.x) * 0.5f);
+				ImGui::Text("%s", buf);
+
+				ImGui::SetWindowFontScale(1.0f);
+				ImGui::PopStyleColor();
+
+				ImGui::Dummy(ImVec2(0, 12));
+			}
+			// DERROTA 
+			else if (is_defeat) {
+				float flicker = 1.0f + 0.10f * sinf((float)glfwGetTime() * 5.0f);
+				ImGui::PushStyleColor(ImGuiCol_Text,
+					ImVec4(0.85f * flicker, 0.20f, 0.20f, 1.0f));
+				ImGui::SetWindowFontScale(2.4f);
+				const char* title = "HAS MUERTO";
+				ImVec2 ts = ImGui::CalcTextSize(title);
+				ImGui::SetCursorPosX((PANEL_W - ts.x) * 0.5f);
+				ImGui::SetCursorPosY(30.0f);
+				ImGui::Text("%s", title);
+				ImGui::SetWindowFontScale(1.0f);
+				ImGui::PopStyleColor();
+
+				ImGui::Dummy(ImVec2(0, 30));
+			}
+
 			ImGui::End();
 		}
 	}
@@ -1993,6 +2326,8 @@ void render_scene()
 
 	check_exit_condition(delta_time, (float)current_time);
 
+	update_ending_state((float)current_time);
+
 	///////// Actualizacion matrices M, V, P  /////////	
 	mat4 P, V, M;
 	P = perspective(glm::radians((float)cam_fov), aspect_ratio, 0.1f, 50.0f);
@@ -2012,7 +2347,7 @@ void render_scene()
 
 	update_keys(delta_time, (float)current_time, P, V);
 
-	update_exit(P, V);
+	
 
 	update_enemy(delta_time, current_time, P, V);
 
@@ -2029,6 +2364,8 @@ void render_scene()
 	glDrawArrays(GL_TRIANGLES, vertex_count_walls + vertex_count_floors, vertex_count_ceilings);
 	
 	glBindVertexArray(0); // Desconectamos VAO
+
+	update_exit(P, V);
 
 	update_torches(delta_time, P, V);
 
@@ -2219,7 +2556,7 @@ static void KeyCallback(GLFWwindow* window, int key, int code, int action, int m
 static void MouseCallback(GLFWwindow* window, double xpos, double ypos)
 {
 	// Si ImGui está mostrando el menú de configuración, no procesamos movimientos
-	if (show_settings || game_over) {
+	if (show_settings || game_over || ending_state != EndingState::PLAYING) {
 		// Actualizamos la posición del ratón para evitar saltos al cerrar el menú
 		last_mouse_x = xpos;
 		last_mouse_y = ypos;
