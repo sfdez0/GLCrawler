@@ -2,7 +2,7 @@
 
 #include <vector>
 
-#include "Particle.h"
+#include "particle.h"
 
 /**
  * Clase para gestionar el sistema de partículas del juego. Se encarga de almacenar todas las partículas activas, actualizarlas cada frame y renderizarlas.

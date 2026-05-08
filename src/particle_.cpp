@@ -1,4 +1,4 @@
-#include "Particle.h"
+#include "particle.h"
 
 // Función para generar un número aleatorio entre a y b
 float randf(float a, float b) {

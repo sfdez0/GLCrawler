@@ -62,9 +62,9 @@ set(GPO_SOURCE_FILES include/stb/stb_image.h
 					 include/flame.h
 					 include/lighting.h
 					 include/torch_module.h
-					 include/Particle.h
-					 include/ParticleEmitter.h
-					 include/ParticleSystem.h
+					 include/particle.h
+					 include/particle_emitter.h
+					 include/particle_system.h
 					 include/pathfinding.h
 					 include/enemy.h
 					 src/GPO_proyecto_final.cpp
@@ -73,9 +73,9 @@ set(GPO_SOURCE_FILES include/stb/stb_image.h
 					 src/flame.cpp
 					 src/lighting.cpp
 					 src/torch_module.cpp
-					 src/Particle.cpp
-					 src/ParticleEmitter.cpp
-					 src/ParticleSystem.cpp
+					 src/particle.cpp
+					 src/particle_emitter.cpp
+					 src/particle_system.cpp
 					 src/key_module.cpp
 					 src/door.cpp
 					 src/enemy.cpp

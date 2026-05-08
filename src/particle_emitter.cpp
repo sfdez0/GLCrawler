@@ -1,4 +1,4 @@
-#include "ParticleEmitter.h"
+#include "particle_emitter.h"
 
 /**
  * Función de actualización del emisor, que se llama cada frame para generar nuevas partículas según el spawnRate

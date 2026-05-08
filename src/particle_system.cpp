@@ -1,4 +1,4 @@
-#include "ParticleSystem.h"
+#include "particle_system.h"
 
 // Programa y buffers
 GLuint prog_particles = 0;

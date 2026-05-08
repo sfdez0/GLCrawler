@@ -1,7 +1,7 @@
 #pragma once
 
-#include "Particle.h"
-#include "ParticleSystem.h"
+#include "particle.h"
+#include "particle_system.h"
 
 /**
  * Estructura para representar un emisor de partículas.

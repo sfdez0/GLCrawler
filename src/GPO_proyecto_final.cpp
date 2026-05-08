@@ -1,6 +1,9 @@
 /**
- * Proyecto final de GpO
- * Título: Dungeon Crawler 3D
+ * GLCrawler
+ * 
+ * sfdez0
+ * TaigaSeven
+ * 
  * ATG, 2019
  */
 
@@ -22,7 +25,7 @@
 #include "door.h"
 #include "key_module.h"
 #include "enemy.h"
-#include "ParticleEmitter.h"
+#include "particle_emitter.h"
 #include "pathfinding.h"
 #include "portal.h"
 #include "damage_overlay.h"
