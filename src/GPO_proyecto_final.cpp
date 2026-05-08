@@ -1966,8 +1966,8 @@ void renderMinimap(ImGuiIO& io) {
 	}
 
 	// Jugador, un triángulo apuntando hacia la dirección de la cámara
-	float jf = (cam_pos.x + center_xz) / tile;
-	float ifl = (cam_pos.z + center_xz) / tile;
+	float jf = (cam_pos.x + center_xz + 2.0f) / tile;
+	float ifl = (cam_pos.z + center_xz + 2.0f) / tile;
 	float px = gx + jf * CELL;
 	float py = gy + ifl * CELL;
 
