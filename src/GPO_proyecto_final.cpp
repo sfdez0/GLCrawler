@@ -39,15 +39,30 @@ const char* prac = "OpenGL (GpO)";
 
 GLFWwindow* window;
 GLuint prog = 0;
+// Texturas de paredes
 GLuint tex_brick = 0;
 GLuint tex_normal = 0;
 GLuint tex_displacement = 0;
 GLuint tex_ao = 0;
+// Texturas de suelo
+GLuint tex_floor = 0;
+GLuint tex_floor_normal = 0;
+GLuint tex_floor_displacement = 0;
+GLuint tex_floor_ao = 0;
+// Texturas de techo
+GLuint tex_ceiling = 0;
+GLuint tex_ceiling_normal = 0;
+GLuint tex_ceiling_displacement = 0;
+GLuint tex_ceiling_ao = 0;
 objeto escena_cubica;
 GLuint escena_vbo_pos = 0;
 GLuint escena_vbo_uv = 0;
 GLuint escena_vbo_norm = 0;
 GLuint escena_vbo_tan = 0;
+// Rangos de vértices para diferentes partes
+int vertex_count_walls = 0;
+int vertex_count_floors = 0;
+int vertex_count_ceilings = 0;
 
 /* -- Variables de juego -- */
 // Puntero a la clase Maze que representa el mapa del laberinto
@@ -611,19 +626,24 @@ objeto crear_escena(const char* map_path, int side_size){
 	entities = load_entities_from_file(map_path, side_size, tile_size, maze_center_xz);
 
 	// Contamos cuantos cubos necesitamos
-	int wall_count = 0;
+	int wall_count = 0; // Paredes
+	int empty_count = 0; // Techos/suelos
 	for (int i = 0; i < maze->getRows(); i++){
 		for(int j = 0; j < maze->getColumns(); j++){
 			// Si el valor es 1, es un muro y necesitamos un cubo
 			if (maze->getGrid(i, j) == 1){
 				wall_count++;
 			}
+			// Si el valor es 0, es vacío y necesitamos una placa de suelo/techo
+			else if (maze->getGrid(i, j) == 0){
+				empty_count++;
+			}
 		}
 	}
 
 	// Cada cubo tiene 36 vértices (6 caras x 2 triángulos x 3 vértices)
-	// Calculamos el número total de vértices necesarios para todas las paredes + 1 suelo + 1 techo
-	int total_vertices = (wall_count + 2) * 36;
+	// Calculamos el número total de vértices necesarios para todas las paredes + placas de suelo/techo unitarias 
+	int total_vertices = (wall_count + (empty_count * 2)) * 36;
 
 	// Creamos arrays para posiciones y colores de los vértices
 	GLfloat* pos_data = new GLfloat[total_vertices * 3];
@@ -711,6 +731,7 @@ objeto crear_escena(const char* map_path, int side_size){
 	};
 
 	// Recorremos el mapa y creamos un cubo por cada pared
+	int start_index = 0;
 	int vertex_index = 0;
 	int ui = 0;
 	int ni = 0;
@@ -753,65 +774,95 @@ objeto crear_escena(const char* map_path, int side_size){
 		}
 	}
 
-	// Para crear el suelo primero calculamos el tamaño total del laberinto
-	float maze_wh = maze->getColumns() * tile_size * 2; // Simétrico en XZ
-	float floor_thickness = 0.5f;
-	
-	// Calculamos la escala para que cubra todo el laberinto
-	float scale_xz = maze_wh / 2.0f; // /2 porque va de -0.5 a 0.5
+	// Guardamos el contador de vértices de paredes
+	vertex_count_walls = vertex_index / 3;
+	start_index = vertex_index; // Guardamos donde terminan las paredes y empiezan los suelos
+
+	// Crear placas de suelo/techo unitarias para cada celda vacía
+	float floor_thickness = 0.5f; // Grosor del suelo/techo
 	float scale_y = floor_thickness / 2.0f;
+
+	float floorY = -scale_y; // Altura del suelo
+	float roofY = tile_size * 1.5f; // Altura del techo
 	
-	// Copiamos los vértices del cubo unitario, escalándolos y trasladándolos a su posición
-	for (int k = 0; k < 36; k++){
-		int v_index = vertex_index; // Índice para el vértice actual
-		pos_data[v_index] = cube_vertices[k][0] * scale_xz;
-		pos_data[v_index + 1] = cube_vertices[k][1] * scale_y;
-		pos_data[v_index + 2] = cube_vertices[k][2] * scale_xz;
-		vertex_index += 3;
+	// Creamos los suelos para cada celda vacía
+	for (int i = 0; i < maze->getRows(); i++){
+		for(int j = 0; j < maze->getColumns(); j++){
+			if (maze->getGrid(i, j) == 0){
+				// Posición central de la placa basada en coordenadas del mapa
+				float posX = j * tile_size - maze_center_xz;
+				float posZ = i * tile_size - maze_center_xz;
 
-		// Color del suelo: gris oscuro (0.4, 0.4, 0.4)
-		int face_vert = k % 6;
-		uv_data[ui] = face_uv[face_vert][0];
-		uv_data[ui + 1] = face_uv[face_vert][1];
-		ui += 2;
+				// Copiamos los vértices del cubo unitario
+				for (int k = 0; k < 36; k++){
+					int v_index = vertex_index;
+					pos_data[v_index] = cube_vertices[k][0] * tile_size + posX;
+					pos_data[v_index + 1] = cube_vertices[k][1] * scale_y + floorY;
+					pos_data[v_index + 2] = cube_vertices[k][2] * tile_size + posZ;
+					vertex_index += 3;
 
-		int face = k / 6;
-		normal_data[ni] = cube_normals[face][0];
-		normal_data[ni + 1] = cube_normals[face][1];
-		normal_data[ni + 2] = cube_normals[face][2];
-		ni += 3;
+					int face_vert = k % 6;
+					uv_data[ui] = face_uv[face_vert][0];
+					uv_data[ui + 1] = face_uv[face_vert][1];
+					ui += 2;
 
-		tangent_data[ti] = cube_tangents[face][0];
-		tangent_data[ti + 1] = cube_tangents[face][1];
-		tangent_data[ti + 2] = cube_tangents[face][2];
-		ti += 3;
+					int face = k / 6;
+					normal_data[ni] = cube_normals[face][0];
+					normal_data[ni + 1] = cube_normals[face][1];
+					normal_data[ni + 2] = cube_normals[face][2];
+					ni += 3;
+
+					tangent_data[ti] = cube_tangents[face][0];
+					tangent_data[ti + 1] = cube_tangents[face][1];
+					tangent_data[ti + 2] = cube_tangents[face][2];
+					ti += 3;
+				}
+			}
+		}
 	}
 
-	// Copiamos los vértices del cubo unitario, escalándolos y trasladándolos a su posición
-	for (int k = 0; k < 36; k++){
-		int v_index = vertex_index; // Índice para el vértice actual
-		pos_data[v_index] = cube_vertices[k][0] * scale_xz;
-		pos_data[v_index + 1] = cube_vertices[k][1] * scale_y + tile_size * 1.5; // Altura del techo
-		pos_data[v_index + 2] = cube_vertices[k][2] * scale_xz;
-		vertex_index += 3;
+	// Guardar el punto donde terminan los suelos y comienzan los techos
+	vertex_count_floors = (vertex_index - start_index) / 3;
+	start_index = vertex_index; // Guardamos donde terminan los suelos y empiezan los techos
 
-		// Color del techo: gris oscuro (0.4, 0.4, 0.4)
-		int face_vert = k % 6;
-		uv_data[ui] = face_uv[face_vert][0];
-		uv_data[ui + 1] = face_uv[face_vert][1];
-		ui += 2;
+	// Creamos los techos para cada celda vacía
+	for (int i = 0; i < maze->getRows(); i++){
+		for(int j = 0; j < maze->getColumns(); j++){
+			if (maze->getGrid(i, j) == 0){
+				// Posición central de la placa basada en coordenadas del mapa
+				float posX = j * tile_size - maze_center_xz;
+				float posZ = i * tile_size - maze_center_xz;
 
-		int face = k / 6;
-		normal_data[ni] = cube_normals[face][0];
-		normal_data[ni + 1] = cube_normals[face][1];
-		normal_data[ni + 2] = cube_normals[face][2];
-		ni += 3;
+				// Copiamos los vértices del cubo unitario
+				for (int k = 0; k < 36; k++){
+					int v_index = vertex_index;
+					pos_data[v_index] = cube_vertices[k][0] * tile_size + posX;
+					pos_data[v_index + 1] = cube_vertices[k][1] * scale_y + roofY;
+					pos_data[v_index + 2] = cube_vertices[k][2] * tile_size + posZ;
+					vertex_index += 3;
 
-		tangent_data[ti] = cube_tangents[face][0];
-		tangent_data[ti + 1] = cube_tangents[face][1];
-		tangent_data[ti + 2] = cube_tangents[face][2];
-		ti += 3;
+					int face_vert = k % 6;
+					uv_data[ui] = face_uv[face_vert][0];
+					uv_data[ui + 1] = face_uv[face_vert][1];
+					ui += 2;
+
+					int face = k / 6;
+					normal_data[ni] = cube_normals[face][0];
+					normal_data[ni + 1] = cube_normals[face][1];
+					normal_data[ni + 2] = cube_normals[face][2];
+					ni += 3;
+
+					tangent_data[ti] = cube_tangents[face][0];
+					tangent_data[ti + 1] = cube_tangents[face][1];
+					tangent_data[ti + 2] = cube_tangents[face][2];
+					ti += 3;
+				}
+			}
+		}
 	}
+
+	// Guardamos el contador de techos
+	vertex_count_ceilings = (vertex_index - start_index) / 3;
 
 	// Mandamos posiciones en un VBO
 	glGenBuffers(1, &escena_vbo_pos); 
@@ -910,6 +961,8 @@ void init_render_resources() {
 
 	// Indicamos que programa vamos a usar 
 	glUseProgram(prog);
+
+	// Cargar texturas de paredes
 	tex_brick = cargar_textura("bin/data/brick.jpg", GL_TEXTURE0);
 	transfer_int("tex", 0);
 
@@ -921,6 +974,18 @@ void init_render_resources() {
 
 	tex_ao = cargar_textura("bin/data/brick_ao.jpg", GL_TEXTURE3);
 	transfer_int("aoMap", 3);
+
+	// Cargar texturas de suelo
+	tex_floor = cargar_textura("bin/data/sand.jpg", GL_TEXTURE4);
+	tex_floor_normal = cargar_textura("bin/data/sand_n.jpg", GL_TEXTURE5);
+	tex_floor_displacement = cargar_textura("bin/data/sand_d.jpg", GL_TEXTURE6);
+	tex_floor_ao = cargar_textura("bin/data/sand_ao.jpg", GL_TEXTURE7);
+
+	// Cargar texturas de techo 
+	tex_ceiling = cargar_textura("bin/data/concrete.jpg", GL_TEXTURE8);
+	tex_ceiling_normal = cargar_textura("bin/data/concrete_n.jpg", GL_TEXTURE9);
+	tex_ceiling_displacement = cargar_textura("bin/data/concrete_d.jpg", GL_TEXTURE10);
+	tex_ceiling_ao = cargar_textura("bin/data/concrete_ao.jpg", GL_TEXTURE11);
 
 	// Inicializamos módulos
 	torch_module::init(); // Antorchas
@@ -1031,6 +1096,40 @@ void destroy_render_resources() {
 	if (tex_ao != 0) {
 		glDeleteTextures(1, &tex_ao);
 		tex_ao = 0;
+	}
+
+	if (tex_floor != 0) {
+		glDeleteTextures(1, &tex_floor);
+		tex_floor = 0;
+	}
+	if (tex_floor_normal != 0) {
+		glDeleteTextures(1, &tex_floor_normal);
+		tex_floor_normal = 0;
+	}
+	if (tex_floor_displacement != 0) {
+		glDeleteTextures(1, &tex_floor_displacement);
+		tex_floor_displacement = 0;
+	}
+	if (tex_floor_ao != 0) {
+		glDeleteTextures(1, &tex_floor_ao);
+		tex_floor_ao = 0;
+	}
+
+	if (tex_ceiling != 0) {
+		glDeleteTextures(1, &tex_ceiling);
+		tex_ceiling = 0;
+	}
+	if (tex_ceiling_normal != 0) {
+		glDeleteTextures(1, &tex_ceiling_normal);
+		tex_ceiling_normal = 0;
+	}
+	if (tex_ceiling_displacement != 0) {
+		glDeleteTextures(1, &tex_ceiling_displacement);
+		tex_ceiling_displacement = 0;
+	}
+	if (tex_ceiling_ao != 0) {
+		glDeleteTextures(1, &tex_ceiling_ao);
+		tex_ceiling_ao = 0;
 	}
 
 	if (prog != 0) {
@@ -1149,13 +1248,33 @@ void check_key_pickup(Keys& k) {
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /**
- * Función para enlazar las texturas de la escena
+ * Función para enlazar las texturas de paredes
  */
-static void bind_scene_textures() {
+static void bind_wall_textures() {
 	glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, tex_brick);
 	glActiveTexture(GL_TEXTURE1); glBindTexture(GL_TEXTURE_2D, tex_normal);
 	glActiveTexture(GL_TEXTURE2); glBindTexture(GL_TEXTURE_2D, tex_displacement);
 	glActiveTexture(GL_TEXTURE3); glBindTexture(GL_TEXTURE_2D, tex_ao);
+}
+
+/**
+ * Función para enlazar las texturas de suelo
+ */
+static void bind_floor_textures() {
+	glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, tex_floor);
+	glActiveTexture(GL_TEXTURE1); glBindTexture(GL_TEXTURE_2D, tex_floor_normal);
+	glActiveTexture(GL_TEXTURE2); glBindTexture(GL_TEXTURE_2D, tex_floor_displacement);
+	glActiveTexture(GL_TEXTURE3); glBindTexture(GL_TEXTURE_2D, tex_floor_ao);
+}
+
+/**
+ * Función para enlazar las texturas de techo
+ */
+static void bind_ceiling_textures() {
+	glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, tex_ceiling);
+	glActiveTexture(GL_TEXTURE1); glBindTexture(GL_TEXTURE_2D, tex_ceiling_normal);
+	glActiveTexture(GL_TEXTURE2); glBindTexture(GL_TEXTURE_2D, tex_ceiling_displacement);
+	glActiveTexture(GL_TEXTURE3); glBindTexture(GL_TEXTURE_2D, tex_ceiling_ao);
 }
 
 /**
@@ -1760,10 +1879,17 @@ void render_scene()
 
 	lighting::upload_to_shader(prog); // Incluye glUseProgram(prog);
 
-	bind_scene_textures();
-	glBindVertexArray(escena_cubica.VAO);             // Activamos VAO del cubo
-	glDrawArrays(GL_TRIANGLES, 0, escena_cubica.Nv);  // Dibujamos todos los triangulos del cubo
-	glBindVertexArray(0);                             // Desconectamos VAO
+	glBindVertexArray(escena_cubica.VAO); // Activamos VAO del cubo
+	
+	// Renderizamos paredes, suelos y techos
+	bind_wall_textures();
+	glDrawArrays(GL_TRIANGLES, 0, vertex_count_walls);
+	bind_floor_textures();
+	glDrawArrays(GL_TRIANGLES, vertex_count_walls, vertex_count_floors);
+	bind_ceiling_textures();
+	glDrawArrays(GL_TRIANGLES, vertex_count_walls + vertex_count_floors, vertex_count_ceilings);
+	
+	glBindVertexArray(0); // Desconectamos VAO
 
 	update_torches(delta_time, P, V);
 
