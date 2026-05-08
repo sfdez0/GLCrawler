@@ -534,7 +534,7 @@ Entities load_entities_from_file(const char* filename, int maze_rows, float tile
 							position = torch_module::compute_world_pos(x_2D, y_2D, direction_2D, tile_size, maze_center_xz);
 							rot_y = torch_module::compute_rotation(direction_2D);
 							lightPos = lighting::compute_torch_light_pos(x_2D, y_2D, direction_2D, tile_size, maze_center_xz);
-							flamePos = flame::compute_position(position, rot_y);
+							flamePos = flame::compute_position(position, direction_2D);
 
 							// Creamos la antorcha y la agregamos a la lista
 							ent.torches.emplace_back(
@@ -1369,7 +1369,7 @@ void update_controls(float delta_time, float current_time) {
 	bool can_run = shift_held && is_moving && player_stamina > 0.0f;
 
 	// Establecemos la velocidad según si está corriendo o no
-	float speed = can_run ? cam_run_speed : cam_speed;
+	float speed = can_run ? (float)cam_run_speed : (float)cam_speed;
 
 	// Actualizamos la resistencia
 	if (can_run) {
