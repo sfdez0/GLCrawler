@@ -1,6 +1,7 @@
-#include "door.h"
 #include <GPO_assimp_aux.h>
-#include <lighting.h>
+
+#include "door.h"
+#include "lighting.h"
 
 namespace door {
 
@@ -209,6 +210,10 @@ namespace door {
         if (mat_door.roughness != 0) {
             glDeleteTextures(1, &mat_door.roughness);
             mat_door.roughness = 0;
+        }
+        if (mat_door.ao != 0) {
+            glDeleteTextures(1, &mat_door.ao);
+            mat_door.ao = 0;
         }
 
         // Borrar modelo

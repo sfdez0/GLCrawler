@@ -7,9 +7,7 @@
  * @param pSystem referencia al sistema de partículas para emitir las nuevas partículas generadas
  */
 void ParticleEmitter::update(float deltaTime, vec3 currentPos, ParticleSystem& pSystem) {
-    if (spawnRate <= 0.0f) {
-        return;
-    }
+    if (spawnRate <= 0.0f) return;
 
     // Actualizamos el temporizador con el tiempo transcurrido
     spawnTimer += deltaTime;

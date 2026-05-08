@@ -2,7 +2,7 @@
 
 #include <GpO.h>
 
-namespace door{
+namespace door {
     // Inicializar
     void init();
 

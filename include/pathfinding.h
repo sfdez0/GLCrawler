@@ -1,8 +1,8 @@
 #pragma once
 
 #include <algorithm>
-#include "GpO.h"
-#include "AStar.hpp"
+#include <AStar.hpp>
+#include <GpO.h>
 
 /**
  * Modulo de pathfinding para el laberinto

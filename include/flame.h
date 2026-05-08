@@ -3,6 +3,7 @@
 #include <GpO.h>
 
 namespace flame {
+    // Inicializar
     void init();
 
     // Liberar recursos GPU

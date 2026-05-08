@@ -1,6 +1,6 @@
 #pragma once
 
-#include "GpO.h"
+#include <GpO.h>
 
 namespace enemy {
     // Inicializar

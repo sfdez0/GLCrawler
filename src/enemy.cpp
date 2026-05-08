@@ -1,9 +1,9 @@
-#include "enemy.h"
 #include <GPO_assimp_aux.h>
-#include <lighting.h>
+
+#include "enemy.h"
+#include "lighting.h"
 
 namespace enemy {
-
     namespace {
         GLuint prog_enemy = 0;
 

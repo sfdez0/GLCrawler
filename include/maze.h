@@ -1,10 +1,6 @@
-#ifndef MAZE_H
-#define MAZE_H
+#pragma once
 
-#include <glm/glm.hpp>
-#include <vector>
-
-using namespace glm;
+#include <GpO.h>
 
 // Estructura para representar una Bounding Box
 struct BoundingBox {
@@ -22,7 +18,7 @@ private:
     std::vector<BoundingBox> wallBoundingBoxes; // Vector con bounding boxes de todos los muros
 
 public:
-    Maze(int side_size, float size = 2.0f);
+    Maze(int side_size, float cellSize = 2.0f);
     ~Maze();
 
     void setMap(const int *data, int r);
@@ -36,5 +32,3 @@ public:
 
     bool checkCollisionWithBoundingBoxes(vec3 position, float radius);
 };
-
-#endif // MAZE_H

@@ -1,177 +1,175 @@
-#include "key_module.h"
 #include <GPO_assimp_aux.h>
-#include <lighting.h>
+
+#include "key_module.h"
+#include "lighting.h"
 
 namespace key_module {
+    namespace {
+        GLuint prog_key = 0;
 
-namespace {
-    GLuint prog_key = 0;
+        // Texturas que componen el material de la llave.
+        struct MatTextures {
+            GLuint base, normal, metallic, ao;
+        };
+        MatTextures mat_key;
 
-    // Texturas que componen el material de la llave.
-    struct MatTextures {
-        GLuint base, normal, metallic, ao;
-    };
-    MatTextures mat_key;
+        // Estructura devuelta por cargar_modelo_assimp con la malla de la llave
+        struct escena key_model;
 
-    // Estructura devuelta por cargar_modelo_assimp con la malla de la llave
-    struct escena key_model;
+        // Parámetros de la animación de la llave.
+        constexpr float HOVER_HEIGHT = 2.0f; // Altura base sobre el suelo (unidades de mundo)
+        constexpr float HOVER_AMPLITUDE = 0.25f; // Amplitud del flotado vertical
+        constexpr float HOVER_SPEED = 2.0f; // Frecuencia angular del flotado 
+        constexpr float ROTATION_SPEED = 1.5f; // Velocidad de giro alrededor del eje Y 
 
-    // Parámetros de la animación de la llave.
-    constexpr float HOVER_HEIGHT = 2.0f; // Altura base sobre el suelo (unidades de mundo)
-    constexpr float HOVER_AMPLITUDE = 0.25f; // Amplitud del flotado vertical
-    constexpr float HOVER_SPEED = 2.0f; // Frecuencia angular del flotado 
-    constexpr float ROTATION_SPEED = 1.5f; // Velocidad de giro alrededor del eje Y 
-
-    // Vincula las 4 texturas del material a sus unidades de textura.
-    void bind_material(const MatTextures& m) {
-        glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, m.base);
-        glActiveTexture(GL_TEXTURE1); glBindTexture(GL_TEXTURE_2D, m.normal);
-        glActiveTexture(GL_TEXTURE2); glBindTexture(GL_TEXTURE_2D, m.metallic);
-        glActiveTexture(GL_TEXTURE3); glBindTexture(GL_TEXTURE_2D, m.ao);
-    }
-
-    #define GLSL(src) "#version 330 core\n" #src
-
-    const char* vertex_key = GLSL(
-        layout(location = 0) in vec3 pos; // Posición del vértice
-        layout(location = 1) in vec3 normal; // Normal del vértice 
-        layout(location = 2) in vec2 uv; // Coordenadas de textura
-
-        // Variables de salida hacia el fragment shader 
-        out vec2 UV; 
-        out vec3 FragPos;
-        out vec3 Normal;
-
-        // Uniforms compartidos por todos los vértices
-        uniform mat4 MVP; 
-        uniform mat4 M;
-
-        void main(){
-            gl_Position = MVP * vec4(pos, 1.0);
-            FragPos = vec3(M * vec4(pos, 1.0));
-            Normal = normalize(mat3(transpose(inverse(M))) * normal);
-            UV = uv;
-        }
-    );
-
-
-    const char* fragment_key = GLSL(
-        in vec2 UV;
-        in vec3 FragPos;
-        in vec3 Normal;
-
-        // Mapas que definen el material de la llave
-        uniform sampler2D baseColorMap; // Color difuso base (sRGB)
-        uniform sampler2D normalMap; // Normales en espacio tangente
-        uniform sampler2D metallicMap; // Metalicidad (0 = dieléctrico, 1 = metal)
-        uniform sampler2D aoMap; // Oclusión ambiente
-        uniform float normalStrength; // Multiplicador para acentuar el relieve
-
-        // Información de las luces de la escena 
-        uniform int numLights; // Nº real de luces activas (<= 16)
-        uniform vec3 lightPositions[16]; // Posiciones en coords. de mundo
-        uniform vec3 lightColors[16]; // Color/intensidad RGB de cada luz
-        uniform vec3 camPos; // Posición de la cámara 
-
-        out vec3 outputColor;
-
-        mat3 cotangent_frame(vec3 N, vec3 p, vec2 uv){
-            // Derivadas de la posición y de las UV respecto a las coords. de pantalla
-            vec3 dp1 = dFdx(p);
-            vec3 dp2 = dFdy(p);
-            vec2 duv1 = dFdx(uv);
-            vec2 duv2 = dFdy(uv);
-
-            // Vectores perpendiculares para construir tangente y bitangente
-            vec3 dp2perp = cross(dp2, N);
-            vec3 dp1perp = cross(N, dp1);
-            vec3 T = dp2perp * duv1.x + dp1perp * duv2.x; 
-            vec3 B = dp2perp * duv1.y + dp1perp * duv2.y; 
-
-            // Normalizamos T y B con el mismo factor para no deformar la base
-            float invmax = inversesqrt(max(dot(T,T), dot(B,B)));
-            return mat3(T * invmax, B * invmax, N);
+        // Vincula las 4 texturas del material a sus unidades de textura.
+        void bind_material(const MatTextures& m) {
+            glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, m.base);
+            glActiveTexture(GL_TEXTURE1); glBindTexture(GL_TEXTURE_2D, m.normal);
+            glActiveTexture(GL_TEXTURE2); glBindTexture(GL_TEXTURE_2D, m.metallic);
+            glActiveTexture(GL_TEXTURE3); glBindTexture(GL_TEXTURE_2D, m.ao);
         }
 
-        void main(){
+        #define GLSL(src) "#version 330 core\n" #src
 
-            vec3 baseColor = pow(texture(baseColorMap, UV).rgb, vec3(2.2));
-            float metallic = texture(metallicMap, UV).r;
-            float ao = texture(aoMap, UV).r;
-            float baseRough = mix(0.65, 0.18, metallic);
-            float roughness = clamp(baseRough, 0.05, 0.95);
+        const char* vertex_key = GLSL(
+            layout(location = 0) in vec3 pos; // Posición del vértice
+            layout(location = 1) in vec3 normal; // Normal del vértice 
+            layout(location = 2) in vec2 uv; // Coordenadas de textura
 
-            vec3 F0 = mix(vec3(0.04), baseColor, metallic);
+            // Variables de salida hacia el fragment shader 
+            out vec2 UV; 
+            out vec3 FragPos;
+            out vec3 Normal;
 
-            vec3 diffuseColor = baseColor * (1.0 - metallic);
+            // Uniforms compartidos por todos los vértices
+            uniform mat4 MVP; 
+            uniform mat4 M;
 
+            void main(){
+                gl_Position = MVP * vec4(pos, 1.0);
+                FragPos = vec3(M * vec4(pos, 1.0));
+                Normal = normalize(mat3(transpose(inverse(M))) * normal);
+                UV = uv;
+            }
+        );
 
-            vec3 V = normalize(camPos - FragPos);
-            vec3 Ngeom = normalize(Normal);
-            vec3 nTan = texture(normalMap, UV).rgb * 2.0 - 1.0; 
-            nTan.xy *= normalStrength; 
-            vec3 N = normalize(cotangent_frame(Ngeom, FragPos, UV) * nTan);
+        const char* fragment_key = GLSL(
+            in vec2 UV;
+            in vec3 FragPos;
+            in vec3 Normal;
 
-            float NdotV = max(dot(N, V), 0.001);
+            // Mapas que definen el material de la llave
+            uniform sampler2D baseColorMap; // Color difuso base (sRGB)
+            uniform sampler2D normalMap; // Normales en espacio tangente
+            uniform sampler2D metallicMap; // Metalicidad (0 = dieléctrico, 1 = metal)
+            uniform sampler2D aoMap; // Oclusión ambiente
+            uniform float normalStrength; // Multiplicador para acentuar el relieve
 
-            float shininess = mix(8.0, 256.0, 1.0 - roughness);
+            // Información de las luces de la escena 
+            uniform int numLights; // Nº real de luces activas (<= 16)
+            uniform vec3 lightPositions[16]; // Posiciones en coords. de mundo
+            uniform vec3 lightColors[16]; // Color/intensidad RGB de cada luz
+            uniform vec3 camPos; // Posición de la cámara 
 
-            vec3 R = reflect(-V, N);
-            vec3 skyColor = vec3(0.55, 0.40, 0.20);
-            vec3 floorColor = vec3(0.08, 0.05, 0.03);
-            vec3 envColor = mix(floorColor, skyColor, R.y * 0.5 + 0.5);
+            out vec3 outputColor;
 
-            vec3 F_amb = F0 + (max(vec3(1.0 - roughness), F0) - F0) * pow(1.0 - NdotV, 5.0);
+            mat3 cotangent_frame(vec3 N, vec3 p, vec2 uv){
+                // Derivadas de la posición y de las UV respecto a las coords. de pantalla
+                vec3 dp1 = dFdx(p);
+                vec3 dp2 = dFdy(p);
+                vec2 duv1 = dFdx(uv);
+                vec2 duv2 = dFdy(uv);
 
-            vec3 ambient = diffuseColor * 0.06
-                         + envColor * F_amb * (1.0 - roughness) * 0.5;
-            ambient *= ao;
+                // Vectores perpendiculares para construir tangente y bitangente
+                vec3 dp2perp = cross(dp2, N);
+                vec3 dp1perp = cross(N, dp1);
+                vec3 T = dp2perp * duv1.x + dp1perp * duv2.x; 
+                vec3 B = dp2perp * duv1.y + dp1perp * duv2.y; 
 
-            // Inicializamos el color final con la contribución ambiente
-            vec3 result = ambient;
-
-            float light_range = 8.0;
-            float light_soft = 2.5;
-
-            // Iteramos sobre todas las luces de la escena (antorchas + luz de la llave)
-            for (int i = 0; i < numLights; i++){
-                // Vector luz-fragmento y su distancia
-                vec3 Lvec = lightPositions[i] - FragPos;
-                float light_dist = length(Lvec);
-                if (light_dist > light_range + light_soft) continue; // Si el fragmento está fuera del rango, saltamos esta luz
-
-                vec3 L = Lvec / max(light_dist, 0.0001); // Normalizado, evitando /0
-
-                // Ángulo luz-normal para la difusa
-                float NdotL = max(dot(N, L), 0.0);
-
-                vec3 H = normalize(L + V);
-                float NdotH = max(dot(N, H), 0.0);
-                float VdotH = max(dot(V, H), 0.0);
-
-                vec3 F = F0 + (1.0 - F0) * pow(1.0 - VdotH, 5.0);
-
-                // Componente especular
-                float specular = pow(NdotH, shininess) * (shininess + 8.0) / 25.0;
-                vec3 specComp = F * specular;
-
-                // Atenuación con la distancia
-                float cutoff = 1.0 - smoothstep(light_range - light_soft, light_range, light_dist);
-                float att = cutoff / (1.0 + 0.15 * light_dist + 0.20 * light_dist * light_dist);
-
-                // Contribución total de esta luz al fragmento
-                vec3 contrib = (diffuseColor + specComp) * NdotL * lightColors[i] * att;
-                result += contrib;
+                // Normalizamos T y B con el mismo factor para no deformar la base
+                float invmax = inversesqrt(max(dot(T,T), dot(B,B)));
+                return mat3(T * invmax, B * invmax, N);
             }
 
-            // Corrección gamma final 
-            result = pow(result, vec3(1.0 / 2.2));
+            void main(){
 
-            outputColor = result;
-        }
-    );
+                vec3 baseColor = pow(texture(baseColorMap, UV).rgb, vec3(2.2));
+                float metallic = texture(metallicMap, UV).r;
+                float ao = texture(aoMap, UV).r;
+                float baseRough = mix(0.65, 0.18, metallic);
+                float roughness = clamp(baseRough, 0.05, 0.95);
 
-} 
+                vec3 F0 = mix(vec3(0.04), baseColor, metallic);
+
+                vec3 diffuseColor = baseColor * (1.0 - metallic);
+
+
+                vec3 V = normalize(camPos - FragPos);
+                vec3 Ngeom = normalize(Normal);
+                vec3 nTan = texture(normalMap, UV).rgb * 2.0 - 1.0; 
+                nTan.xy *= normalStrength; 
+                vec3 N = normalize(cotangent_frame(Ngeom, FragPos, UV) * nTan);
+
+                float NdotV = max(dot(N, V), 0.001);
+
+                float shininess = mix(8.0, 256.0, 1.0 - roughness);
+
+                vec3 R = reflect(-V, N);
+                vec3 skyColor = vec3(0.55, 0.40, 0.20);
+                vec3 floorColor = vec3(0.08, 0.05, 0.03);
+                vec3 envColor = mix(floorColor, skyColor, R.y * 0.5 + 0.5);
+
+                vec3 F_amb = F0 + (max(vec3(1.0 - roughness), F0) - F0) * pow(1.0 - NdotV, 5.0);
+
+                vec3 ambient = diffuseColor * 0.06
+                            + envColor * F_amb * (1.0 - roughness) * 0.5;
+                ambient *= ao;
+
+                // Inicializamos el color final con la contribución ambiente
+                vec3 result = ambient;
+
+                float light_range = 8.0;
+                float light_soft = 2.5;
+
+                // Iteramos sobre todas las luces de la escena (antorchas + luz de la llave)
+                for (int i = 0; i < numLights; i++){
+                    // Vector luz-fragmento y su distancia
+                    vec3 Lvec = lightPositions[i] - FragPos;
+                    float light_dist = length(Lvec);
+                    if (light_dist > light_range + light_soft) continue; // Si el fragmento está fuera del rango, saltamos esta luz
+
+                    vec3 L = Lvec / max(light_dist, 0.0001); // Normalizado, evitando /0
+
+                    // Ángulo luz-normal para la difusa
+                    float NdotL = max(dot(N, L), 0.0);
+
+                    vec3 H = normalize(L + V);
+                    float NdotH = max(dot(N, H), 0.0);
+                    float VdotH = max(dot(V, H), 0.0);
+
+                    vec3 F = F0 + (1.0 - F0) * pow(1.0 - VdotH, 5.0);
+
+                    // Componente especular
+                    float specular = pow(NdotH, shininess) * (shininess + 8.0) / 25.0;
+                    vec3 specComp = F * specular;
+
+                    // Atenuación con la distancia
+                    float cutoff = 1.0 - smoothstep(light_range - light_soft, light_range, light_dist);
+                    float att = cutoff / (1.0 + 0.15 * light_dist + 0.20 * light_dist * light_dist);
+
+                    // Contribución total de esta luz al fragmento
+                    vec3 contrib = (diffuseColor + specComp) * NdotL * lightColors[i] * att;
+                    result += contrib;
+                }
+
+                // Corrección gamma final 
+                result = pow(result, vec3(1.0 / 2.2));
+
+                outputColor = result;
+            }
+        );
+    } 
 
     void init() {
         // Compilación y enlazado del programa de shaders propio de la llave
@@ -251,5 +249,4 @@ namespace {
     vec3 compute_light_pos(vec3 base_pos) {
         return base_pos + vec3(0.0f, HOVER_HEIGHT + 0.3f, 0.0f);
     }
-
 } 

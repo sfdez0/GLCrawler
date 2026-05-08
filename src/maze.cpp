@@ -1,5 +1,4 @@
-#include <stdio.h>
-#include <maze.h>
+#include "maze.h"
 
 /**
  * Constructor de Maze
@@ -155,4 +154,3 @@ bool Maze::checkCollisionWithBoundingBoxes(vec3 position, float radius) {
     
     return false; // No hay colisión
 }
-
