@@ -25,6 +25,7 @@
 #include "ParticleEmitter.h"
 #include "pathfinding.h"
 #include "portal.h"
+#include "damage_overlay.h"
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////     ESTADOS DE FIN DE PARTIDA
@@ -1030,6 +1031,7 @@ void init_render_resources() {
 	flame::init(); // Llamas de las antorchas
 	key_module::init(); // Llaves
 	portal::init(); // Portal
+	damage_overlay::init(); // Efecto daño
 	particleSystem.init(); // Sistema de partículas
 
 	// Volver al programa principal
@@ -1121,6 +1123,7 @@ void destroy_render_resources() {
 	enemy::shutdown();
 	key_module::shutdown();
 	portal::shutdown();
+	damage_overlay::shutdown();
 
 	if (tex_brick != 0) {
 		glDeleteTextures(1, &tex_brick);
@@ -1618,6 +1621,7 @@ void update_enemy(float delta_time, float current_time, const mat4& P, const mat
 			if (current_time - entities.enemy.last_attack_time > entities.enemy.attack_cooldown) {
 				entities.enemy.last_attack_time = current_time;
 				player_health -= 10;
+				damage_overlay::trigger(1.0);
 
 				// Si la vida llega a 0, el juego termina
 				if (player_health <= 0) {
@@ -2269,7 +2273,7 @@ void renderGameUI(ImGuiIO& io) {
 				ImGui::PushStyleColor(ImGuiCol_Text,
 					ImVec4(0.85f * flicker, 0.20f, 0.20f, 1.0f));
 				ImGui::SetWindowFontScale(2.4f);
-				const char* title = "HAS MUERTO";
+				const char* title = "NO HAS ESCAPADO";
 				ImVec2 ts = ImGui::CalcTextSize(title);
 				ImGui::SetCursorPosX((PANEL_W - ts.x) * 0.5f);
 				ImGui::SetCursorPosY(30.0f);
@@ -2323,6 +2327,8 @@ void render_scene()
 		current_time = game_over_time;
 	}
 
+	damage_overlay::update((float)delta_time);
+
 	update_controls(delta_time, (float)current_time);
 
 	check_exit_condition(delta_time, (float)current_time);
@@ -2371,6 +2377,8 @@ void render_scene()
 	update_torches(delta_time, P, V);
 
 	update_particles(delta_time, P, V);
+
+	damage_overlay::draw();
 
 	// Renderizamos las interfaces con ImGui
 	ImGuiIO& io = ImGui::GetIO();

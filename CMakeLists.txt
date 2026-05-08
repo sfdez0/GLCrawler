@@ -81,6 +81,7 @@ set(GPO_SOURCE_FILES include/stb/stb_image.h
 					 src/enemy.cpp
 					 src/pathfinding.cpp
 					 src/portal.cpp
+					 src/damage_overlay.cpp
 					 libs/astar/AStar.hpp
 					 libs/astar/AStar.cpp
 					 tests/assimp/GPO_assimp_aux.h
