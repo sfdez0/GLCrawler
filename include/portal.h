@@ -16,5 +16,5 @@ namespace portal {
           float appear_t, float time, mat4 P, mat4 V);
           
     // Devuelve el centro del portal a la altura de la cámara
-    vec3 compute_portal_center(vec3 door_pos, float cam_height);
+    vec3 compute_portal_center(vec3 door_pos);
 }

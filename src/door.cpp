@@ -74,7 +74,6 @@ namespace door {
 
             out vec3 outputColor;
 
-            const float specularPower = 2.0f;
             const float light_range = 6.0f; // Rango máximo de la luz
             const float light_soft = 2.0f; // Rango de suavizado al final del rango máximo
 

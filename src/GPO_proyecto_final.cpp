@@ -1551,7 +1551,7 @@ void update_exit(const mat4& P, const mat4& V) {
 
 	if (draw_portal) {
 		vec3 portal_pos = portal::compute_portal_center(
-			entities.exit.position, cam_pos.y);
+			entities.exit.position);
 
 		vec3 to_cam = cam_pos - portal_pos;
 		to_cam.y = 0.0f;

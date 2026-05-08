@@ -172,7 +172,7 @@ namespace portal {
     glBindVertexArray(0);
 }
 
-vec3 compute_portal_center(vec3 door_pos, float cam_height) {
+vec3 compute_portal_center(vec3 door_pos) {
     return vec3(door_pos.x+0.2f, door_pos.y -0.2f, door_pos.z);
 }
 }

@@ -39,7 +39,7 @@ namespace lighting {
                 + 0.30f * sin(time * f2 + phase * 1.7f)
                 + 0.10f * sin(time * f3 + phase * 2.3f);
 
-            // Limitamos intensidad entre 0.5 y 1.2
+            // Limitamos intensidad entre 1.5 y 4.5
             intensity = clamp(intensity, 1.5f, 4.5f); 
         }
 
