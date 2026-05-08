@@ -35,11 +35,16 @@ Se pueden lanzar haciendo click sobre ellos o desde el entorno de programacion.
 - [x] Aleatorización de la intensidad de las luces
 - [x] Sistema de partículas
 - [ ] Aleatorización de cambios en las texturas (paredes rotas, paredes sucias...)
-- [ ] IA Enemiga
-- [ ] Mecánica de recoger piedras preciosas/llaves
-- [ ] Mecánica de fin (salir del laberinto o morir)
+- [x] IA Enemiga
+- [x] Mecánica de recoger llaves
+- [x] Mecánica de fin (salir del laberinto o morir)
 - [ ] Sonidos
 
 # Referencias
 - Colisiones: https://learnopengl.com/In-Practice/2D-Game/Collisions/Collision-detection
 - Textura de ladrillos: https://polyhaven.com/a/castle_brick_02_red
+- Textura de hormigón: https://polyhaven.com/a/concrete_floor_damaged_01
+- Textura de arena: https://polyhaven.com/a/sand_03
+- Modelo de puerta: https://sketchfab.com/3d-models/bunker-door-153c7436da9b47e59f7539c1c54104f1
+- Modelo de fantasma: https://sketchfab.com/3d-models/cloth-ghost-f4fc1cd448c04a809d106975cfa7011b
+- Página utilizada para exportar el modelos de puerta y fantasma a formato ".obj": https://3dviewer.net
