@@ -14,4 +14,7 @@ namespace key_module {
 
     // Calcular la posición de la luz dorada que acompaña a la llave
     vec3 compute_light_pos(vec3 base_pos);
+
+    // Liberar recursos GPU
+    void shutdown();  
 }

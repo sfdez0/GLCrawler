@@ -1119,6 +1119,7 @@ void destroy_render_resources() {
 	flame::shutdown();
 	door::shutdown();
 	enemy::shutdown();
+	key_module::shutdown();
 	portal::shutdown();
 
 	if (tex_brick != 0) {

@@ -249,4 +249,37 @@ namespace key_module {
     vec3 compute_light_pos(vec3 base_pos) {
         return base_pos + vec3(0.0f, HOVER_HEIGHT + 0.3f, 0.0f);
     }
+
+    // Liberar recursos GPU
+    void shutdown() {
+        // Borrar programa
+        if (prog_key != 0) {
+            glDeleteProgram(prog_key);
+            prog_key = 0;
+        }
+
+        // Borrar texturas del material
+        if (mat_key.base != 0) {
+            glDeleteTextures(1, &mat_key.base);
+            mat_key.base = 0;
+        }
+        if (mat_key.normal != 0) {
+            glDeleteTextures(1, &mat_key.normal);
+            mat_key.normal = 0;
+        }
+        if (mat_key.metallic != 0) {
+            glDeleteTextures(1, &mat_key.metallic);
+            mat_key.metallic = 0;
+        }
+        if (mat_key.ao != 0) {
+            glDeleteTextures(1, &mat_key.ao);
+            mat_key.ao = 0;
+        }
+
+        // Borrar modelo
+        if (key_model.objs || key_model.mats || key_model.instIdx || key_model.buffers) {
+            limpiar_escena(&key_model);
+            key_model = {};
+        }
+    }
 } 
