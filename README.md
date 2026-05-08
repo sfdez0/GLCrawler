@@ -47,4 +47,7 @@ Se pueden lanzar haciendo click sobre ellos o desde el entorno de programacion.
 - Textura de arena: https://polyhaven.com/a/sand_03
 - Modelo de puerta: https://sketchfab.com/3d-models/bunker-door-153c7436da9b47e59f7539c1c54104f1
 - Modelo de fantasma: https://sketchfab.com/3d-models/cloth-ghost-f4fc1cd448c04a809d106975cfa7011b
+- Modelo de antorcha: https://sketchfab.com/3d-models/medieval-torch-worn-16e59c78217d42c195492089d7f398c5
+- Modelo de llave: https://sketchfab.com/3d-models/key-99ee9ff58fd14cb19309da81d0b098c9
+- Imagen de fuego: https://opengameart.org/content/animated-flame
 - Página utilizada para exportar el modelos de puerta y fantasma a formato ".obj": https://3dviewer.net
