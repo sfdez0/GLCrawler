@@ -61,6 +61,9 @@ int ANCHO = 800, ALTO = 600;
 // Título de la ventana
 const char* prac = "OpenGL (GpO)"; 
 
+// Control de pantalla completa
+bool fullscreen = false;
+
 GLFWwindow* window;
 GLuint prog = 0;
 // Texturas de paredes
@@ -1320,6 +1323,19 @@ void check_key_pickup(Keys& k) {
 	}
 }
 
+void toggle_fullscreen(GLFWwindow* window){
+	fullscreen = !fullscreen;
+
+	if (fullscreen){
+		GLFWmonitor* monitor = glfwGetPrimaryMonitor();
+		const GLFWvidmode* mode = glfwGetVideoMode(monitor);
+		glfwSetWindowMonitor(window, monitor, 0, 0, mode->width, mode->height, mode->refreshRate);
+	}
+	else{
+		glfwSetWindowMonitor(window, NULL, 100, 100, 800, 600, GLFW_DONT_CARE);
+	}
+}
+
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////     FUNCIONES RENDER Y ACTUALIZACIÓN DE LA ESCENA 
@@ -2459,7 +2475,6 @@ void show_info()
 		glfwSetWindowTitle(window, nombre_ventana);
 		last_tt = tt; fps = 0;
 	}
-
 }
 
 
@@ -2530,6 +2545,12 @@ static void KeyCallback(GLFWwindow* window, int key, int code, int action, int m
 			// Si se pulsa ESC, mostramos el menú de configuración
 			if (action == GLFW_PRESS) {
 				show_settings = true;
+			}
+			break;
+		case GLFW_KEY_F11:
+			// F11 para alternar modo ventana/fullscreen
+			if (action == GLFW_PRESS) {
+				toggle_fullscreen(window);
 			}
 			break;
 		case GLFW_KEY_W:
