@@ -135,7 +135,7 @@ float cam_yaw = 0.0f; // Rotación horizontal (grados)
 float cam_pitch = 0.0f; // Rotación vertical (grados)
 
 // Variables de control con teclado
-bool keys_pressed[7] = {false, false, false, false, false, false, false}; // W, S, D, A, Q, E, Shift
+bool keys_pressed[5] = {false, false, false, false, false}; // W, S, D, A, Shift
 double last_frame_time = 0.0; // Tiempo del último frame
 
 // Variables de ImGui
@@ -1212,7 +1212,7 @@ void reset_scene(const char* map_path, int side_size) {
 
 	entities = Entities();
 	
-	for (int i = 0; i < 7; i++) {
+	for (int i = 0; i < 5; i++) {
 		keys_pressed[i] = false;
 	}
 
@@ -1386,7 +1386,7 @@ void update_controls(float delta_time, float current_time) {
 	bool is_moving = keys_pressed[0] || keys_pressed[1] || keys_pressed[2] || keys_pressed[3];
 
 	// Solo puede correr si: pulsa Shift + se está moviendo + tiene resistencia 
-	bool shift_held = keys_pressed[6];
+	bool shift_held = keys_pressed[4];
 	bool can_run = shift_held && is_moving && player_stamina > 0.0f;
 
 	// Establecemos la velocidad según si está corriendo o no
@@ -1436,20 +1436,6 @@ void update_controls(float delta_time, float current_time) {
 	if (keys_pressed[3]) {
 		vec3 right = glm::normalize(glm::cross(cam_target, cam_up));
 		vec3 new_pos = cam_pos - right * movement_distance;
-		if (can_move(new_pos)) {
-			cam_pos = new_pos;
-		}
-	}
-	// Q: Arriba
-	if (keys_pressed[4]) {
-		vec3 new_pos = cam_pos + cam_up * movement_distance;
-		if (can_move(new_pos)) {
-			cam_pos = new_pos;
-		}
-	}
-	// E: Abajo
-	if (keys_pressed[5]) {
-		vec3 new_pos = cam_pos - cam_up * movement_distance;
 		if (can_move(new_pos)) {
 			cam_pos = new_pos;
 		}
@@ -2530,7 +2516,7 @@ static void KeyCallback(GLFWwindow* window, int key, int code, int action, int m
 		}
 
 		// Y establecemos resto de teclas en false para evitar que queden "pulsadas" al cerar el menú
-		for (int i = 0; i < 7; i++) {
+		for (int i = 0; i < 5; i++) {
 			keys_pressed[i] = false;
 		}
 
@@ -2565,14 +2551,8 @@ static void KeyCallback(GLFWwindow* window, int key, int code, int action, int m
 		case GLFW_KEY_A:
 			keys_pressed[3] = is_pressed; // A: Izquierda
 			break;
-		case GLFW_KEY_Q:
-			keys_pressed[4] = is_pressed; // Q: Arriba
-			break;
-		case GLFW_KEY_E:
-			keys_pressed[5] = is_pressed; // E: Abajo
-			break;
 		case GLFW_KEY_LEFT_SHIFT:
-			keys_pressed[6] = is_pressed; // Shift: Correr
+			keys_pressed[4] = is_pressed; // Shift: Correr
 			break;
 		default:
 			break;
