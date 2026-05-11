@@ -2,8 +2,8 @@
 
 /**
  * Constructor de Maze
- * `r` Número de filas y columnas del mapa (cuadrado)
- * `size` Tamaño de cada celda en unidades 3D (por defecto 2.0f)
+ * @param side_size Número de filas y columnas del mapa (cuadrado)
+ * @param size Tamaño de cada celda en unidades 3D (por defecto 2.0f)
  */
 Maze::Maze(int side_size, float size) 
 : rows(side_size), columns(side_size), tile_size(size) {
@@ -21,8 +21,8 @@ Maze::~Maze() {
 
 /**
  * Función para establecer el mapa a partir de un array de enteros
- * `datos` Arreglo 1D con los datos del mapa (1 = muro, 0 = vacío)
- * `r` Número de filas del mapa (debe coincidir con el número de columnas para un mapa cuadrado)
+ * @param datos Arreglo 1D con los datos del mapa (1 = muro, 0 = vacío)
+ * @param r Número de filas del mapa (debe coincidir con el número de columnas para un mapa cuadrado)
  */
 void Maze::setMap(const int* datos, int r) {
     // Verificamos si el tamaño del mapa ha cambiado
@@ -65,9 +65,9 @@ void Maze::setMap(const int* datos, int r) {
 
 /**
  * Función para establecer el valor de una celda específica
- * `r` Índice de fila
- * `c` Índice de columna
- * `value` Valor a establecer (1 = muro, 0 = vacío)
+ * @param r Índice de fila
+ * @param c Índice de columna
+ * @param value Valor a establecer (1 = muro, 0 = vacío)
  */
 void Maze::setGrid(int r, int c, int value) {
     if (r >= 0 && r < rows && c >= 0 && c < columns) {
@@ -77,8 +77,8 @@ void Maze::setGrid(int r, int c, int value) {
 
 /**
  * Función para obtener el valor de una celda específica
- * `r` Índice de fila
- * `c` Índice de columna
+ * @param r Índice de fila
+ * @param c Índice de columna
  */
 int Maze::getGrid(int r, int c) {
     if (r >= 0 && r < rows && c >= 0 && c < columns) {
@@ -132,9 +132,9 @@ std::vector<vec3> Maze::getWallPositions() {
 
 /**
  * Función para verificar colisión AABB entre la cámara (como caja) y los muros
- * `position` Posición central de la cámara
- * `radius` Radio/mitad del ancho de la caja de colisión de la cámara
- * Devuelve true si hay colisión, false si está libre
+ * @param position Posición central de la cámara
+ * @param radius Radio/mitad del ancho de la caja de colisión de la cámara
+ * @return true si hay colisión, false si está libre
  */
 bool Maze::checkCollisionWithBoundingBoxes(vec3 position, float radius) {
     // AABB de la cámara (caja rectangular centrada en position)
