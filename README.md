@@ -1,53 +1,117 @@
-# Información
-Práctica de Gráficos por Ordenador MUII
+# GLCrawler
+![C++](https://img.shields.io/badge/C++-17-blue) ![OpenGL](https://img.shields.io/badge/OpenGL-4.0.0-green)
 
-# Requisitos previos
-1. Los drivers con aceleración 3D del fabricante con soporte para OpenGL
-2. Un entornos de programación para lenguaje C/C++. En linux con tener el GCC y G++ podría ser suficiente. 
-Se pueden utilizar entornos como VScode o CLion. 
-En Windows se aconseja Visual Studio 2019/2022 y en Mac XCode. Otros compiladores como MinGW tamibén podrian funcionar.
-3. CMake instalado y accesible desde el terminal o consola de comandos.
+GLCrawler is a first-person 3D dungeon crawler built with **OpenGL** as a university project for Computer Graphics course at MUII.
 
-# Puesta en funcionamiento del proyecto
-1. Una vez descomprimido el zip y acceder mediante el terminal al directorio build.
-En entornos Linux con GCC/G++ instalado ejecutar
-cmake .. -DOpenGL_GL_PREFERENCE=GLVND
+It features different levels, real-time lighting with flickering torches, an A* powered enemy AI, collectable keys, and a particle system for visual effects. 
+
+The logic is structured around a modular architecture where game entities (Doors, Torches, Keys, Enemies) are encapsulated in dedicated modules that manage their own shaders, textures, and logic.
+
+---
+  
+## Features  
+  
+- [x] First-person movement (WASD) with mouse look and sprint (Shift)  
+- [x] Z-Buffer 
+- [x] BoundingBox collision detection against maze walls  
+- [x] Texture mapping (walls, floor, ceiling)  
+- [x] Pause menu and HUD via Dear ImGui  
+- [x] Maze loading from `.txt` map files  
+- [x] Dark-fog lighting (only areas near a light source are illuminated)  
+- [x] Animated torches with flickering point lights  
+- [x] Pseudo-Randomised light intensity  
+- [x] Particle system
+- [x] Enemy AI with A\* pathfinding
+- [x] Key collection mechanic  
+- [x] Win/loss state machine (escape portal or die)  
+  
+---  
+  
+## Technology Stack  
+  
+| Component | Library / Technology | 
+|:----------------|:---------------|  
+| Graphics API | OpenGL |
+| Windowing/Input | GLFW |
+| Math | GLM |
+| Model Loading | Assimp |
+| UI | Dear ImGui |
+| Pathfinding | A\* ([astar](https://github.com/daancode/a-star)) |
+  
+---  
+  
+## Prerequisites  
+  
+1. **GPU drivers** with OpenGL 4.0 support.  
+2. **C++17 compiler**  
+   - Linux: GCC/G++ 
+   - Windows: Visual Studio 2019/2022
+   - macOS: Xcode
+3. **CMake ≥ 3.7** accessible from the terminal.  
+  
+---  
+  
+## Building  
+
+All dependencies (GLFW, GLM, Assimp, GLAD, ImGui, AStar) are bundled under `libs/`.  
+  
+### Linux  
+  
+```bash  
+mkdir build && cd build  
+cmake .. -DOpenGL_GL_PREFERENCE=GLVND  
 make -j4
+```
 
-2. En entornos Windows con Visual Studio 2019/2022
-Abrir diréctamente el fichero de solución de VS y compilar
+### Windows (Visual Studio)
 
-#  Ejecución
-En el directio /build/bin se habrán generado los binarios correspondientes al proyecto.
-Se pueden lanzar haciendo click sobre ellos o desde el entorno de programacion.
+Open the repository folder directly in Visual Studio 2019/2022 (CMake project
+support) or run CMake-GUI to generate a .sln solution file, then build from the IDE.
 
+---  
 
-# Características
-- [x] Controles de movimiento (WASD, QE, ESC)
-- [x] Control de cámara con ratón
-- [x] Z-Buffer
-- [x] Colisiones
-- [x] Texturas
-- [x] UI con menú de pausa y HUD
-- [x] Carga de laberintos (mapas) desde archivos .txt con formato estándar
-- [x] Iluminación modo "niebla oscura" (solo se iluminan las areas cercanas a alguna luz)
-- [x] Antorchas con fuego e iluminación propia
-- [x] Aleatorización de la intensidad de las luces
-- [x] Sistema de partículas
-- [ ] Aleatorización de cambios en las texturas (paredes rotas, paredes sucias...)
-- [x] IA Enemiga
-- [x] Mecánica de recoger llaves
-- [x] Mecánica de fin (salir del laberinto o morir)
-- [ ] Sonidos
+## Running
 
-# Referencias
-- Colisiones: https://learnopengl.com/In-Practice/2D-Game/Collisions/Collision-detection
-- Textura de ladrillos: https://polyhaven.com/a/castle_brick_02_red
-- Textura de hormigón: https://polyhaven.com/a/concrete_floor_damaged_01
-- Textura de arena: https://polyhaven.com/a/sand_03
-- Modelo de puerta: https://sketchfab.com/3d-models/bunker-door-153c7436da9b47e59f7539c1c54104f1
-- Modelo de fantasma: https://sketchfab.com/3d-models/cloth-ghost-f4fc1cd448c04a809d106975cfa7011b
-- Modelo de antorcha: https://sketchfab.com/3d-models/medieval-torch-worn-16e59c78217d42c195492089d7f398c5
-- Modelo de llave: https://sketchfab.com/3d-models/key-99ee9ff58fd14cb19309da81d0b098c9
-- Imagen de fuego: https://opengameart.org/content/animated-flame
-- Página utilizada para exportar el modelos de puerta y fantasma a formato ".obj": https://3dviewer.net
+After building, launch the game from `build/bin/`:
+```bash
+./gpo_proyecto_final   # Linux / macOS  
+gpo_proyecto_final.exe # Windows
+```
+
+---  
+
+## Controls
+
+| Key / Input | Action | 
+|:------------|:-------|  
+| W A S D | Move |
+| Shift | Sprint |
+| Mouse | Look around |
+| ESC | Show menu |
+| F11 | Toggle fullscreen mode |
+
+---  
+
+## Credits
+- **Base framework:** [GitHub - gpo-framework](https://github.com/juanpebm/gpo-framework) by @juanpebm
+- **[OpenGL](https://www.opengl.org/)**
+- **[GLFW](https://www.glfw.org/)** - *License: zlib/libpng*
+- **[GLM](glm.g-truc.net)** - *License: MIT*
+- **[Assimp](https://www.assimp.org/)** - *License: BSD 3-clause*
+- **[Dear ImGUI](https://github.com/ocornut/imgui)** by Omar Cornut - *License: BSD 3-clause*
+- **Astar C++ algorithm:** [GitHub - a-star](https://github.com/daancode/a-star) by Damian Barczyński - *License: MIT*
+- **3D Model conversion tool:** [Online 3D Viewer](https://3dviewer.net) by Viktor Kovacs - *(used as an external tool)*
+- **Brick texture:** [Poly Haven - Castle Brick 02 Red](https://polyhaven.com/a/castle_brick_02_red) by Rob Tuytel - *License: CC0 1.0*
+- **Concrete texture:** [Poly Haven - Concrete Floor Damaged 01](https://polyhaven.com/a/concrete_floor_damaged_01) by Rob Tuytel - *License: CC0 1.0*
+- **Sand texture:** [Poly Haven - Sand 03](https://polyhaven.com/a/sand_03) by Charlotte Baglioni - *License: CC0 1.0*
+- **Fire sprite:** [OpenGameArt - Animated Flame](https://opengameart.org/content/animated-flame) by @dorkster - *License: CC-BY-SA 3.0*
+- **Door model:** [Sketchfab - Bunker Door](https://sketchfab.com/3d-models/bunker-door-153c7436da9b47e59f7539c1c54104f1) by @Skotchet - *License: CC BY 4.0*
+- **Ghost model:** [Sketchfab - Cloth Ghost](https://sketchfab.com/3d-models/cloth-ghost-f4fc1cd448c04a809d106975cfa7011b) by @ANDRE - *License: CC BY 4.0*
+- **Torch model:** [Sketchfab - Medieval Torch (worn)](https://sketchfab.com/3d-models/medieval-torch-worn-16e59c78217d42c195492089d7f398c5) by @reddification - *License: CC BY 4.0*
+- **Key model:** [Sketchfab - Key](https://sketchfab.com/3d-models/key-99ee9ff58fd14cb19309da81d0b098c9) by @Gektark - *License: CC BY 4.0*
+
+---  
+
+## Authors
+- [@sfdez0](https://github.com/sfdez0)
+- [@TaigaSeven](https://github.com/TaigaSeven)
