@@ -1,5 +1,5 @@
 # GLCrawler
-![C++](https://img.shields.io/badge/C++-17-blue) ![OpenGL](https://img.shields.io/badge/OpenGL-4.0.0-green)
+![C++](https://img.shields.io/badge/C++-17-blue) ![OpenGL](https://img.shields.io/badge/OpenGL-4.0.0-green) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/sfdez0/GLCrawler/blob/main/LICENSE.md)
 
 GLCrawler is a first-person 3D dungeon crawler built with **OpenGL** as a university project for Computer Graphics course at MUII.
 
