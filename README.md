@@ -7,6 +7,10 @@ It features different levels, real-time lighting with flickering torches, an A* 
 
 The logic is structured around a modular architecture where game entities (Doors, Torches, Keys, Enemies) are encapsulated in dedicated modules that manage their own shaders, textures, and logic.
 
+<div align="center">
+  <img width="740" height="487" alt="unknown_2026 05 10-15 30_1" src="https://github.com/user-attachments/assets/777f4b65-1a7a-4653-9af9-eb8e8bb89b7e" />
+</div>
+
 ---
   
 ## Features  
